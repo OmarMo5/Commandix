@@ -1,0 +1,10 @@
+# ضع هذا الملف في root الـ cPanel (public_html) إذا Laravel في subfolder
+# أو استخدمه كـ .htaccess في public_html مباشرة
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # إعادة توجيه كل الطلبات إلى Laravel public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ /public/$1 [L,QSA]
+</IfModule>
