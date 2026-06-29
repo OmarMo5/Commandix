@@ -1,16 +1,21 @@
 import { NavLink } from 'react-router-dom';
+import {
+  LayoutDashboard, CheckSquare, Bell, Building2,
+  Users, ShieldCheck, FolderOpen, Activity,
+  User, ChevronLeft, ChevronRight, Zap
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { path: '/dashboard', icon: '📊', label: 'Dashboard', section: 'Main', managerOnly: true },
-  { path: '/tasks', icon: '✅', label: 'My Tasks', section: 'Main' },
-  { path: '/notifications', icon: '🔔', label: 'Notifications', section: 'Main' },
-  { path: '/departments', icon: '🏢', label: 'Departments', section: 'Management' },
-  { path: '/users', icon: '👥', label: 'Users', section: 'Management', adminOnly: true },
-  { path: '/roles', icon: '🛡️', label: 'Roles', section: 'Management', adminOnly: true },
-  { path: '/files', icon: '📁', label: 'Files', section: 'System' },
-  { path: '/activity', icon: '🧾', label: 'Activity Log', section: 'System', adminOnly: true },
-  { path: '/profile', icon: '👤', label: 'Profile', section: 'Account' },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', section: 'Main', managerOnly: true },
+  { path: '/tasks', icon: CheckSquare, label: 'My Tasks', section: 'Main' },
+  { path: '/notifications', icon: Bell, label: 'Notifications', section: 'Main' },
+  { path: '/departments', icon: Building2, label: 'Departments', section: 'Management' },
+  { path: '/users', icon: Users, label: 'Users', section: 'Management', adminOnly: true },
+  { path: '/roles', icon: ShieldCheck, label: 'Roles', section: 'Management', adminOnly: true },
+  { path: '/files', icon: FolderOpen, label: 'Files', section: 'System' },
+  { path: '/activity', icon: Activity, label: 'Activity Log', section: 'System', adminOnly: true },
+  { path: '/profile', icon: User, label: 'Profile', section: 'Account' },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
@@ -25,41 +30,49 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+      {/* Brand */}
       <div className="sidebar-brand">
-        <div className="brand-icon">⚡</div>
-        {!collapsed && <span className="brand-name">PortalTask</span>}
+        <div className="brand-icon">
+          <Zap size={20} color="#fff" strokeWidth={2.5} />
+        </div>
+        {!collapsed && <span className="brand-name">Commandix</span>}
       </div>
 
+      {/* Nav */}
       <nav className="sidebar-nav">
         {sections.map(section => {
           const items = navItems.filter(i => i.section === section && isVisible(i));
           if (!items.length) return null;
           return (
             <div key={section}>
-              <div className="nav-section">{section}</div>
-              {items.map(item => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                  title={collapsed ? item.label : ''}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
-                </NavLink>
-              ))}
+              {!collapsed && <div className="nav-section">{section}</div>}
+              {items.map(item => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <span className="nav-icon-wrap">
+                      <Icon size={18} strokeWidth={1.8} />
+                    </span>
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                );
+              })}
             </div>
           );
         })}
       </nav>
 
-      <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <button
-          onClick={onToggle}
-          className="nav-item"
-          style={{ background: 'none', border: 'none', width: '100%', cursor: 'pointer' }}
-        >
-          <span className="nav-icon">{collapsed ? '→' : '←'}</span>
+      {/* Footer / Collapse button */}
+      <div className="sidebar-footer">
+        <button className="sidebar-collapse-btn" onClick={onToggle}>
+          <span className="nav-icon-wrap">
+            {collapsed ? <ChevronRight size={18} strokeWidth={1.8} /> : <ChevronLeft size={18} strokeWidth={1.8} />}
+          </span>
           {!collapsed && <span>Collapse</span>}
         </button>
       </div>

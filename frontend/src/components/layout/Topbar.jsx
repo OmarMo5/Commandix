@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Menu, Sun, Moon, Bell, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../api/axios';
@@ -27,57 +28,81 @@ export default function Topbar({ onToggleSidebar }) {
     navigate('/login');
   };
 
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
 
   return (
     <header className="topbar">
-      <div className="d-flex align-items-center gap-3">
-        <button
-          onClick={onToggleSidebar}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-secondary)' }}
-        >
-          ☰
+      <div className="topbar-left">
+        <button className="topbar-icon-btn" onClick={onToggleSidebar} title="Toggle sidebar">
+          <Menu size={18} />
         </button>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          Welcome back, <strong style={{ color: 'var(--text-primary)' }}>{user?.name}</strong>
+        <div className="topbar-greeting" style={{ display: 'none' }}>
+          {/* hidden on small screens via CSS if needed */}
         </div>
       </div>
 
-      <div className="d-flex align-items-center gap-3">
+      <div className="topbar-right">
+        {/* Theme toggle */}
         <button
+          className="topbar-icon-btn"
           onClick={toggle}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}
-          title={dark ? 'Light Mode' : 'Dark Mode'}
+          title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {dark ? '☀️' : '🌙'}
+          {dark ? <Sun size={17} /> : <Moon size={17} />}
         </button>
 
-        <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => navigate('/notifications')}>
-          <span style={{ fontSize: 20 }}>🔔</span>
-          {unread > 0 && <span className="notif-dot">{unread > 9 ? '9+' : unread}</span>}
-        </div>
+        {/* Notifications */}
+        <button
+          className="topbar-icon-btn"
+          onClick={() => navigate('/notifications')}
+          title="Notifications"
+        >
+          <Bell size={17} />
+          {unread > 0 && (
+            <span className="notif-dot">{unread > 9 ? '9+' : unread}</span>
+          )}
+        </button>
 
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, background: 'var(--border-color)', margin: '0 4px' }} />
+
+        {/* User dropdown */}
         <div className="dropdown">
-          <button
-            className="d-flex align-items-center gap-2"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            data-bs-toggle="dropdown"
-          >
-            <div className="avatar" style={{ width: 34, height: 34 }}>
+          <button className="topbar-user-btn" data-bs-toggle="dropdown">
+            <div
+              className="avatar"
+              style={{ width: 32, height: 32, fontSize: 12, fontWeight: 700 }}
+            >
               {user?.avatar
                 ? <img src={user.avatar} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                 : initials
               }
             </div>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{user?.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{user?.role?.display_name || 'User'}</div>
+            <div className="topbar-user-info" style={{ display: 'none' }}>
+              <div className="topbar-user-name">{user?.name}</div>
+              <div className="topbar-user-role">{user?.role?.display_name || 'User'}</div>
             </div>
+            <div className="d-none d-md-flex flex-column" style={{ textAlign: 'left', minWidth: 0 }}>
+              <div className="topbar-user-name">{user?.name}</div>
+              <div className="topbar-user-role">{user?.role?.display_name || 'User'}</div>
+            </div>
+            <ChevronDown size={13} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
           </button>
+
           <ul className="dropdown-menu dropdown-menu-end">
-            <li><button className="dropdown-item" onClick={() => navigate('/profile')}>👤 Profile</button></li>
+            <li>
+              <button className="dropdown-item" onClick={() => navigate('/profile')}>
+                <User size={14} />
+                My Profile
+              </button>
+            </li>
             <li><hr className="dropdown-divider" /></li>
-            <li><button className="dropdown-item text-danger" onClick={handleLogout}>🚪 Logout</button></li>
+            <li>
+              <button className="dropdown-item text-danger" onClick={handleLogout}>
+                <LogOut size={14} />
+                Sign Out
+              </button>
+            </li>
           </ul>
         </div>
       </div>

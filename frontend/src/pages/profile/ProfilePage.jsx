@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'react-toastify';
+import { User, Mail, Lock, Shield, Building2, Camera, Save, Key } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 
@@ -10,6 +11,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const fileInputRef = useRef(null);
 
   const handleProfile = async (e) => {
     e.preventDefault();
@@ -17,9 +20,9 @@ export default function ProfilePage() {
     try {
       await api.put(`/users/${user.id}`, form);
       await refreshUser();
-      toast.success('Profile updated');
+      toast.success('Profile updated successfully');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update');
+      toast.error(err.response?.data?.message || 'Failed to update profile');
     } finally { setSaving(false); }
   };
 
@@ -32,128 +35,285 @@ export default function ProfilePage() {
     setSavingPwd(true);
     try {
       await api.put(`/users/${user.id}/password`, pwdForm);
-      toast.success('Password changed');
+      toast.success('Password changed successfully');
       setPwdForm({ password: '', password_confirmation: '' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to change password');
     } finally { setSavingPwd(false); }
   };
 
-  const handleAvatar = async () => {
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatarPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarUpload = async () => {
     if (!avatarFile) return;
     const fd = new FormData();
     fd.append('avatar', avatarFile);
     try {
       await api.post('/users/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       await refreshUser();
+      setAvatarFile(null);
+      setAvatarPreview(null);
       toast.success('Avatar updated');
     } catch { toast.error('Failed to upload avatar'); }
   };
 
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const avatarSrc = avatarPreview || user?.avatar;
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Profile</h1>
+        <div>
+          <h1 className="page-title">My Profile</h1>
+          <p className="page-subtitle">Manage your account settings and preferences</p>
+        </div>
       </div>
 
       <div className="row g-4">
-        <div className="col-md-4">
-          <div className="card text-center">
-            <div style={{ marginBottom: 16 }}>
-              {user?.avatar
-                ? <img src={user.avatar} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />
-                : <div className="avatar" style={{ width: 80, height: 80, fontSize: 24, margin: '0 auto' }}>{initials}</div>
-              }
-            </div>
-            <h5 style={{ fontWeight: 700 }}>{user?.name}</h5>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{user?.email}</p>
-            {user?.role && (
-              <span style={{ fontSize: 12, background: 'var(--accent)20', color: 'var(--accent)', padding: '3px 12px', borderRadius: 20 }}>
-                {user.role.display_name}
-              </span>
-            )}
-            {user?.department && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 8 }}>
-                🏢 {user.department.name}
-              </p>
-            )}
+        {/* Left Column — Profile Card */}
+        <div className="col-md-4 col-lg-3">
+          <div className="profile-section-card">
+            {/* Hero cover */}
+            <div className="profile-hero" />
 
-            <hr style={{ borderColor: 'var(--border-color)' }} />
+            {/* Avatar + info */}
+            <div style={{ paddingBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingRight: 20 }}>
+                <div className="profile-avatar-wrap">
+                  <div className="profile-avatar-large">
+                    {avatarSrc
+                      ? <img src={avatarSrc} alt={user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : initials
+                    }
+                  </div>
+                  <div
+                    className="profile-avatar-upload"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Change avatar"
+                  >
+                    <Camera size={20} color="#fff" />
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleAvatarFileChange}
+                  />
+                </div>
+                {avatarFile && (
+                  <button
+                    className="btn-accent"
+                    style={{ padding: '6px 14px', fontSize: 12 }}
+                    onClick={handleAvatarUpload}
+                  >
+                    <Save size={13} />
+                    Save
+                  </button>
+                )}
+              </div>
 
-            <div>
-              <label className="form-label">Change Avatar</label>
-              <input
-                type="file"
-                className="form-control form-control-sm"
-                accept="image/*"
-                onChange={e => setAvatarFile(e.target.files[0])}
-              />
-              {avatarFile && (
-                <button className="btn-accent mt-2 w-100" onClick={handleAvatar}>Upload</button>
-              )}
+              <div className="profile-info-section">
+                <div className="profile-name">{user?.name}</div>
+                <div className="profile-email">{user?.email}</div>
+                <div className="profile-chips">
+                  {user?.role && (
+                    <span className="profile-chip">
+                      <Shield size={11} />
+                      {user.role.display_name}
+                    </span>
+                  )}
+                  {user?.department && (
+                    <span className="profile-chip dept">
+                      <Building2 size={11} />
+                      {user.department.name}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{
+                  marginTop: 20,
+                  padding: '14px 16px',
+                  background: 'var(--bg-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-color)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
+                    Account Info
+                  </div>
+                  {[
+                    { icon: User, label: 'Name', value: user?.name },
+                    { icon: Mail, label: 'Email', value: user?.email },
+                    { icon: Shield, label: 'Role', value: user?.role?.display_name || '—' },
+                    { icon: Building2, label: 'Dept', value: user?.department?.name || '—' },
+                  ].map(({ icon: Icon, label, value }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <Icon size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 36 }}>{label}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="col-md-8">
-          <div className="card mb-4">
-            <h6 style={{ fontWeight: 600, marginBottom: 20 }}>Edit Profile</h6>
-            <form onSubmit={handleProfile}>
-              <div className="mb-3">
-                <label className="form-label">Full Name</label>
-                <input
-                  className="form-control"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  required
-                />
-              </div>
-              <button type="submit" className="btn-accent" disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </form>
-          </div>
+        {/* Right Column — Forms */}
+        <div className="col-md-8 col-lg-9">
+          <div className="d-flex flex-column gap-4">
 
-          <div className="card">
-            <h6 style={{ fontWeight: 600, marginBottom: 20 }}>Change Password</h6>
-            <form onSubmit={handlePassword}>
-              <div className="mb-3">
-                <label className="form-label">New Password</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={pwdForm.password}
-                  onChange={e => setPwdForm(f => ({ ...f, password: e.target.value }))}
-                  required
-                  minLength={8}
-                />
+            {/* Edit Profile */}
+            <div className="profile-section-card">
+              <div className="profile-section-header">
+                <div
+                  className="profile-section-icon"
+                  style={{ background: 'var(--accent-light)', border: '1px solid rgba(99,102,241,0.2)' }}
+                >
+                  <User size={16} color="var(--accent)" />
+                </div>
+                <div>
+                  <div className="profile-section-title">Personal Information</div>
+                  <div className="profile-section-subtitle">Update your name and email address</div>
+                </div>
               </div>
-              <div className="mb-3">
-                <label className="form-label">Confirm New Password</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={pwdForm.password_confirmation}
-                  onChange={e => setPwdForm(f => ({ ...f, password_confirmation: e.target.value }))}
-                  required
-                />
+              <div className="profile-section-body">
+                <form onSubmit={handleProfile}>
+                  <div className="row g-3 mb-4">
+                    <div className="col-md-6">
+                      <label className="form-label">Full Name</label>
+                      <div style={{ position: 'relative' }}>
+                        <User size={15} style={{
+                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--text-muted)', pointerEvents: 'none',
+                        }} />
+                        <input
+                          className="form-control"
+                          style={{ paddingLeft: 36 }}
+                          value={form.name}
+                          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Your full name"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">Email Address</label>
+                      <div style={{ position: 'relative' }}>
+                        <Mail size={15} style={{
+                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--text-muted)', pointerEvents: 'none',
+                        }} />
+                        <input
+                          type="email"
+                          className="form-control"
+                          style={{ paddingLeft: 36 }}
+                          value={form.email}
+                          onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="your@email.com"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-accent" disabled={saving}>
+                    <Save size={14} />
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </form>
               </div>
-              <button type="submit" className="btn-accent" disabled={savingPwd}>
-                {savingPwd ? 'Changing...' : 'Change Password'}
-              </button>
-            </form>
+            </div>
+
+            {/* Change Password */}
+            <div className="profile-section-card">
+              <div className="profile-section-header">
+                <div
+                  className="profile-section-icon"
+                  style={{ background: 'var(--warning-light)', border: '1px solid rgba(245,158,11,0.2)' }}
+                >
+                  <Key size={16} color="var(--warning)" />
+                </div>
+                <div>
+                  <div className="profile-section-title">Security</div>
+                  <div className="profile-section-subtitle">Change your password to keep your account safe</div>
+                </div>
+              </div>
+              <div className="profile-section-body">
+                <form onSubmit={handlePassword}>
+                  <div className="row g-3 mb-4">
+                    <div className="col-md-6">
+                      <label className="form-label">New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={15} style={{
+                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--text-muted)', pointerEvents: 'none',
+                        }} />
+                        <input
+                          type="password"
+                          className="form-control"
+                          style={{ paddingLeft: 36 }}
+                          value={pwdForm.password}
+                          onChange={e => setPwdForm(f => ({ ...f, password: e.target.value }))}
+                          placeholder="At least 8 characters"
+                          required
+                          minLength={8}
+                        />
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">Confirm New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={15} style={{
+                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--text-muted)', pointerEvents: 'none',
+                        }} />
+                        <input
+                          type="password"
+                          className="form-control"
+                          style={{ paddingLeft: 36 }}
+                          value={pwdForm.password_confirmation}
+                          onChange={e => setPwdForm(f => ({ ...f, password_confirmation: e.target.value }))}
+                          placeholder="Repeat new password"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Password strength hint */}
+                  <div style={{
+                    padding: '12px 16px',
+                    background: 'var(--info-light)',
+                    border: '1px solid rgba(59,130,246,0.15)',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: 16,
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                  }}>
+                    <Shield size={14} color="var(--info)" style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ fontSize: 12, color: 'var(--info)' }}>
+                      Use at least 8 characters with a mix of letters, numbers and symbols for a strong password.
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-accent" disabled={savingPwd}
+                    style={{ background: 'linear-gradient(135deg,#f59e0b,#f97316)', boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}
+                  >
+                    <Key size={14} />
+                    {savingPwd ? 'Changing...' : 'Change Password'}
+                  </button>
+                </form>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
