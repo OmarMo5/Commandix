@@ -334,7 +334,7 @@ export default function DashboardPage() {
       {/* Recent Tasks + Activity */}
       <div className="row g-3">
         <div className="col-lg-7">
-          <div className="table-card">
+          <div className="table-card h-100">
             <div className="table-card-header">
               <span className="table-card-title">Recent Tasks</span>
               <button
@@ -401,7 +401,7 @@ export default function DashboardPage() {
             <div className="table-card-header">
               <span className="table-card-title">Recent Activity</span>
             </div>
-            <div className="timeline">
+            <div className="timeline" style={{ maxHeight: 420, overflowY: 'auto' }}>
               {stats.recent_activity.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text-muted)' }}>
                   No activity yet
