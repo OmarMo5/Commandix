@@ -7,7 +7,7 @@ import {
 } from 'chart.js';
 import {
   ClipboardList, Clock, Zap, CheckCircle2,
-  Users, Building2, Plus, TrendingUp, Activity
+  Users, Building2, Plus, TrendingUp, Activity, UserX, AlertTriangle
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +15,11 @@ import { useTheme } from '../../context/ThemeContext';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-const STAT_DEFS = (stats, isAdminUser) => [
+// Validated for both light & dark chart surfaces (dataviz skill validator) — do not
+// swap in --accent (indigo) here, it sits too close to purple/blue for CVD separation.
+const ROLE_COLORS = { super_admin: '#a855f7', admin: '#ef4444', manager: '#3b82f6', employee: '#059669' };
+
+const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
   {
     label: 'Total Tasks',
     value: stats.tasks.total,
@@ -72,10 +76,35 @@ const STAT_DEFS = (stats, isAdminUser) => [
       gradient: 'linear-gradient(135deg,#06b6d4,#22d3ee)',
     },
   ] : []),
+  ...(isSuperAdminUser ? [
+    {
+      label: 'Inactive Accounts',
+      value: stats.inactive_users_count,
+      icon: UserX,
+      color: '#ef4444',
+      bg: 'linear-gradient(135deg,rgba(239,68,68,0.12),rgba(248,113,113,0.06))',
+      border: 'rgba(239,68,68,0.2)',
+      gradient: 'linear-gradient(135deg,#ef4444,#f87171)',
+      badgeText: stats.inactive_users_count > 0 ? 'Review' : 'Clear',
+      badgeIcon: AlertTriangle,
+    },
+    {
+      label: 'Depts. w/o Manager',
+      value: stats.unmanaged_departments_count,
+      icon: AlertTriangle,
+      color: '#f59e0b',
+      bg: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.06))',
+      border: 'rgba(245,158,11,0.2)',
+      gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
+      badgeText: stats.unmanaged_departments_count > 0 ? 'Review' : 'Clear',
+      badgeIcon: AlertTriangle,
+    },
+  ] : []),
 ];
 
 function StatCard({ stat }) {
   const Icon = stat.icon;
+  const BadgeIcon = stat.badgeIcon || TrendingUp;
   return (
     <div
       className="stat-card"
@@ -99,8 +128,8 @@ function StatCard({ stat }) {
           display: 'flex', alignItems: 'center', gap: 3,
           whiteSpace: 'nowrap',
         }}>
-          <TrendingUp size={11} />
-          Active
+          <BadgeIcon size={11} />
+          {stat.badgeText || 'Active'}
         </div>
       </div>
     </div>
@@ -110,7 +139,7 @@ function StatCard({ stat }) {
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user, isAdminOrAbove, isManager } = useAuth();
+  const { user, isAdminOrAbove, isManager, isSuperAdmin } = useAuth();
   const { dark } = useTheme();
   const navigate = useNavigate();
 
@@ -125,7 +154,7 @@ export default function DashboardPage() {
   if (loading) return <SkeletonDashboard />;
 
   const gridCols = isAdminOrAbove() ? 'col-6 col-md-4 col-lg-2' : 'col-6 col-md-3';
-  const statDefs = STAT_DEFS(stats, isAdminOrAbove());
+  const statDefs = STAT_DEFS(stats, isAdminOrAbove(), isSuperAdmin());
 
   const chartTextColor = dark ? '#94a3b8' : '#64748b';
   const chartGridColor = dark ? 'rgba(30,42,58,0.8)' : 'rgba(226,232,240,0.8)';
@@ -148,6 +177,17 @@ export default function DashboardPage() {
       backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
       borderRadius: 8,
       borderSkipped: false,
+    }],
+  };
+
+  const roleDistribution = isSuperAdmin() ? (stats.role_distribution || []) : [];
+  const roleData = {
+    labels: roleDistribution.map(r => r.role),
+    datasets: [{
+      data: roleDistribution.map(r => r.count),
+      backgroundColor: roleDistribution.map(r => ROLE_COLORS[r.slug] || '#94a3b8'),
+      borderWidth: 0,
+      hoverOffset: 6,
     }],
   };
 
@@ -215,7 +255,7 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="row g-3 mb-4">
-        <div className="col-md-5">
+        <div className={isSuperAdmin() ? 'col-md-4' : 'col-md-5'}>
           <div className="chart-card h-100">
             <div className="chart-card-header">
               <div>
@@ -236,7 +276,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="col-md-7">
+        <div className={isSuperAdmin() ? 'col-md-4' : 'col-md-7'}>
           <div className="chart-card h-100">
             <div className="chart-card-header">
               <div>
@@ -256,6 +296,31 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {isSuperAdmin() && (
+          <div className="col-md-4">
+            <div className="chart-card h-100">
+              <div className="chart-card-header">
+                <div>
+                  <div className="chart-card-title">Team by Role</div>
+                  <div className="chart-card-subtitle">Who has access to what</div>
+                </div>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: 'var(--purple-light)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Users size={16} color="var(--purple)" />
+                </div>
+              </div>
+              <div className="chart-card-body" style={{ display: 'flex', justifyContent: 'center', maxHeight: 280 }}>
+                {roleDistribution.length > 0
+                  ? <Doughnut data={roleData} options={doughnutOptions} />
+                  : <div style={{ color: 'var(--text-muted)', fontSize: 13, alignSelf: 'center' }}>No data yet</div>}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recent Tasks + Activity */}
