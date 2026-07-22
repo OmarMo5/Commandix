@@ -104,7 +104,7 @@ const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
 
 function StatCard({ stat }) {
   const Icon = stat.icon;
-  const BadgeIcon = stat.badgeIcon || TrendingUp;
+  const BadgeIcon = stat.badgeIcon;
   return (
     <div
       className="stat-card"
@@ -121,16 +121,18 @@ function StatCard({ stat }) {
           <div className="stat-number">{stat.value}</div>
           <div className="stat-label">{stat.label}</div>
         </div>
-        <div style={{
-          fontSize: 11, fontWeight: 600, color: stat.color,
-          background: stat.bg, border: `1px solid ${stat.border}`,
-          padding: '3px 8px', borderRadius: 20, marginTop: 4,
-          display: 'flex', alignItems: 'center', gap: 3,
-          whiteSpace: 'nowrap',
-        }}>
-          <BadgeIcon size={11} />
-          {stat.badgeText || 'Active'}
-        </div>
+        {stat.badgeText && (
+          <div style={{
+            fontSize: 11, fontWeight: 600, color: stat.color,
+            background: stat.bg, border: `1px solid ${stat.border}`,
+            padding: '3px 8px', borderRadius: 20, marginTop: 4,
+            display: 'flex', alignItems: 'center', gap: 3,
+            whiteSpace: 'nowrap',
+          }}>
+            {BadgeIcon && <BadgeIcon size={11} />}
+            {stat.badgeText}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -153,7 +155,9 @@ export default function DashboardPage() {
 
   if (loading) return <SkeletonDashboard />;
 
-  const gridCols = isAdminOrAbove() ? 'col-6 col-md-4 col-lg-2' : 'col-6 col-md-3';
+  // Super Admin has 8 cards — 4-per-row divides evenly into two full rows.
+  // Admin has 6 — 6-per-row is one full row. Manager/Employee have 4 — 4 fits either way.
+  const gridCols = isSuperAdmin() ? 'col-6 col-md-4 col-lg-3' : isAdminOrAbove() ? 'col-6 col-md-4 col-lg-2' : 'col-6 col-md-3';
   const statDefs = STAT_DEFS(stats, isAdminOrAbove(), isSuperAdmin());
 
   const chartTextColor = dark ? '#94a3b8' : '#64748b';
@@ -270,8 +274,10 @@ export default function DashboardPage() {
                 <Activity size={16} color="var(--accent)" />
               </div>
             </div>
-            <div className="chart-card-body" style={{ display: 'flex', justifyContent: 'center', maxHeight: 280 }}>
-              <Doughnut data={taskStatusData} options={doughnutOptions} />
+            <div className="chart-card-body" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: 280 }}>
+              {stats.tasks.total > 0
+                ? <Doughnut data={taskStatusData} options={doughnutOptions} />
+                : <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No tasks yet</div>}
             </div>
           </div>
         </div>
@@ -291,8 +297,10 @@ export default function DashboardPage() {
                 <TrendingUp size={16} color="var(--warning)" />
               </div>
             </div>
-            <div className="chart-card-body" style={{ maxHeight: 280 }}>
-              <Bar data={priorityData} options={barOptions} />
+            <div className="chart-card-body" style={{ maxHeight: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {stats.tasks.total > 0
+                ? <Bar data={priorityData} options={barOptions} />
+                : <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No tasks yet</div>}
             </div>
           </div>
         </div>
