@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\Department;
+use App\Models\Role;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,20 +49,13 @@ class DashboardController extends Controller
         $activityQuery = ActivityLog::with('user:id,name,avatar');
 
         if (!$user->isAdminOrAbove()) {
-            if ($user->isManager() && $user->department_id) {
-                $teamUserIds = User::where('department_id', $user->department_id)->pluck('id');
-                $teamTaskIds = Task::where('department_id', $user->department_id)->pluck('id');
-            } else {
-                $teamUserIds = collect([$user->id]);
-                $teamTaskIds = (clone $taskQuery)->pluck('id');
-            }
+            // Non-admins only get task activity within their own scope — never
+            // account-level noise (logins, other people's profile edits, etc.)
+            $teamTaskIds = $user->isManager() && $user->department_id
+                ? Task::where('department_id', $user->department_id)->pluck('id')
+                : (clone $taskQuery)->pluck('id');
 
-            $activityQuery->where(function ($q) use ($teamUserIds, $teamTaskIds) {
-                $q->whereIn('user_id', $teamUserIds)
-                  ->orWhere(function ($q2) use ($teamTaskIds) {
-                      $q2->where('model_type', 'Task')->whereIn('model_id', $teamTaskIds);
-                  });
-            });
+            $activityQuery->where('model_type', 'Task')->whereIn('model_id', $teamTaskIds);
         }
 
         $recentActivity = $activityQuery->latest()->limit(10)->get();
@@ -94,6 +88,17 @@ class DashboardController extends Controller
                     'department' => $t->department?->name ?? 'Unassigned',
                     'count' => $t->count,
                 ]);
+        }
+
+        if ($user->isSuperAdmin()) {
+            $result['role_distribution'] = Role::withCount('users')
+                ->get()
+                ->map(fn($r) => ['role' => $r->display_name, 'slug' => $r->name, 'count' => $r->users_count])
+                ->filter(fn($r) => $r['count'] > 0)
+                ->values();
+
+            $result['inactive_users_count'] = User::where('is_active', false)->count();
+            $result['unmanaged_departments_count'] = Department::whereNull('manager_id')->count();
         }
 
         return response()->json($result);
