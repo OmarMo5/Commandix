@@ -70,5 +70,11 @@ class RolePermissionSeeder extends Seeder
             ['display_name' => 'Employee', 'description' => 'View and update assigned tasks']
         );
         $employeeRole->permissions()->sync($employeePermissions);
+
+        $superAdminRole = Role::firstOrCreate(
+            ['name' => 'super_admin'],
+            ['display_name' => 'Super Admin', 'description' => 'Owns the system — controls what every other role can access']
+        );
+        $superAdminRole->permissions()->sync($allPermissions);
     }
 }

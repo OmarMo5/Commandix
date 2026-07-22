@@ -18,7 +18,14 @@ class DashboardController extends Controller
 
         $taskQuery = Task::query();
 
-        if (!$user->isAdmin() && !$user->isManager()) {
+        if ($user->isAdminOrAbove()) {
+            // no filter — sees everything
+        } elseif ($user->isManager()) {
+            // Team stats: scoped to the manager's own department
+            if ($user->department_id) {
+                $taskQuery->where('department_id', $user->department_id);
+            }
+        } else {
             $taskQuery->where(function ($q) use ($user) {
                 $q->whereHas('assignees', fn($q2) => $q2->where('users.id', $user->id))
                   ->orWhere('creator_id', $user->id);
@@ -38,10 +45,26 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $recentActivity = ActivityLog::with('user:id,name,avatar')
-            ->latest()
-            ->limit(10)
-            ->get();
+        $activityQuery = ActivityLog::with('user:id,name,avatar');
+
+        if (!$user->isAdminOrAbove()) {
+            if ($user->isManager() && $user->department_id) {
+                $teamUserIds = User::where('department_id', $user->department_id)->pluck('id');
+                $teamTaskIds = Task::where('department_id', $user->department_id)->pluck('id');
+            } else {
+                $teamUserIds = collect([$user->id]);
+                $teamTaskIds = (clone $taskQuery)->pluck('id');
+            }
+
+            $activityQuery->where(function ($q) use ($teamUserIds, $teamTaskIds) {
+                $q->whereIn('user_id', $teamUserIds)
+                  ->orWhere(function ($q2) use ($teamTaskIds) {
+                      $q2->where('model_type', 'Task')->whereIn('model_id', $teamTaskIds);
+                  });
+            });
+        }
+
+        $recentActivity = $activityQuery->latest()->limit(10)->get();
 
         $result = [
             'tasks' => [
@@ -59,7 +82,7 @@ class DashboardController extends Controller
             'recent_activity' => $recentActivity,
         ];
 
-        if ($user->isAdmin()) {
+        if ($user->isAdminOrAbove()) {
             $result['users_count'] = User::count();
             $result['departments_count'] = Department::count();
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -16,7 +17,7 @@ class UserController extends Controller
         $query    = User::with(['role', 'department']);
 
         // Manager sees only their department's users
-        if ($authUser->isManager() && !$authUser->isAdmin()) {
+        if ($authUser->isManager() && !$authUser->isAdminOrAbove()) {
             $query->where('department_id', $authUser->department_id);
         }
 
@@ -48,6 +49,10 @@ class UserController extends Controller
             'department_id' => 'nullable|exists:departments,id',
         ]);
 
+        if ($response = $this->guardElevatedRole($request)) {
+            return $response;
+        }
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -70,7 +75,12 @@ class UserController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with('role')->findOrFail($id);
+        $authUser = $request->user();
+
+        if ($user->isAdminOrAbove() && !$authUser->isSuperAdmin()) {
+            return response()->json(['message' => 'Only a Super Admin can modify an Admin or Super Admin account.'], 403);
+        }
 
         $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -80,6 +90,10 @@ class UserController extends Controller
             'is_active' => 'sometimes|boolean',
         ]);
 
+        if ($response = $this->guardElevatedRole($request)) {
+            return $response;
+        }
+
         $old = $user->toArray();
         $user->update($request->only(['name', 'email', 'role_id', 'department_id', 'is_active']));
         ActivityLog::record('user_updated', $user, $old, $user->fresh()->toArray());
@@ -87,18 +101,40 @@ class UserController extends Controller
         return response()->json($user->load(['role', 'department']));
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with('role')->findOrFail($id);
 
         if ($user->id === auth()->id()) {
             return response()->json(['message' => 'Cannot delete yourself.'], 403);
+        }
+
+        if ($user->isAdminOrAbove() && !$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Only a Super Admin can delete an Admin or Super Admin account.'], 403);
         }
 
         ActivityLog::record('user_deleted', $user, $user->toArray());
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully.']);
+    }
+
+    /**
+     * Only a Super Admin may create/promote a user into the admin or super_admin role.
+     */
+    private function guardElevatedRole(Request $request)
+    {
+        if (!$request->filled('role_id')) {
+            return null;
+        }
+
+        $targetRole = Role::find($request->role_id);
+
+        if ($targetRole && in_array($targetRole->name, ['admin', 'super_admin'], true) && !$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Only a Super Admin can assign the ' . $targetRole->display_name . ' role.'], 403);
+        }
+
+        return null;
     }
 
     public function updatePassword(Request $request, string $id)

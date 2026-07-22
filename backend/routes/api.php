@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TaskCommentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
@@ -18,9 +19,9 @@ Route::prefix('v1')->group(function () {
 
     // ── Public ────────────────────────────────────────────────────────────────
     Route::prefix('auth')->group(function () {
-        Route::post('login',    [AuthController::class, 'login']);
-        Route::post('register', [AuthController::class, 'register']);
+        Route::post('login', [AuthController::class, 'login']);
     });
+    Route::get('settings', [SettingsController::class, 'show']);
 
     // ── Protected ─────────────────────────────────────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
@@ -34,23 +35,46 @@ Route::prefix('v1')->group(function () {
         // Dashboard
         Route::get('dashboard/stats', [DashboardController::class, 'stats']);
 
-        // Users
-        Route::apiResource('users', UserController::class);
-        Route::put('users/{id}/password', [UserController::class, 'updatePassword']);
+        // Users — permission-gated per action
+        Route::get('users',        [UserController::class, 'index'])->middleware('permission:users.view');
+        Route::get('users/{id}',   [UserController::class, 'show'])->middleware('permission:users.view');
+        Route::post('users',       [UserController::class, 'store'])->middleware('permission:users.create');
+        Route::put('users/{id}',   [UserController::class, 'update'])->middleware('permission:users.edit');
+        Route::delete('users/{id}',[UserController::class, 'destroy'])->middleware('permission:users.delete');
+        Route::put('users/{id}/password', [UserController::class, 'updatePassword'])->middleware('permission:users.edit');
         Route::post('users/avatar',       [UserController::class, 'updateAvatar']);
 
-        // Roles & Permissions
-        Route::apiResource('roles', RoleController::class);
-        Route::get('permissions', [RoleController::class, 'permissions']);
+        // Roles — listing open to any authenticated user (used for dropdowns),
+        // everything else (create/edit/delete + permissions catalog) is Super Admin only.
+        Route::get('roles', [RoleController::class, 'index']);
+        Route::middleware('superadmin')->group(function () {
+            Route::get('roles/{id}',    [RoleController::class, 'show']);
+            Route::post('roles',        [RoleController::class, 'store']);
+            Route::put('roles/{id}',    [RoleController::class, 'update']);
+            Route::delete('roles/{id}', [RoleController::class, 'destroy']);
+            Route::get('permissions',   [RoleController::class, 'permissions']);
+        });
 
-        // Departments
+        // Departments — permission-gated per action
         Route::get('departments/managers-list',    [DepartmentController::class, 'managersList']);
         Route::post('departments/message-manager', [DepartmentController::class, 'messageManager']);
-        Route::apiResource('departments', DepartmentController::class);
+        Route::get('departments',        [DepartmentController::class, 'index'])->middleware('permission:departments.view');
+        Route::get('departments/{id}',   [DepartmentController::class, 'show'])->middleware('permission:departments.view');
+        Route::post('departments',       [DepartmentController::class, 'store'])->middleware('permission:departments.create');
+        Route::put('departments/{id}',   [DepartmentController::class, 'update'])->middleware('permission:departments.edit');
+        Route::delete('departments/{id}',[DepartmentController::class, 'destroy'])->middleware('permission:departments.delete');
 
-        // Tasks
-        Route::apiResource('tasks', TaskController::class);
-        Route::put('tasks/{id}/status', [TaskController::class, 'updateStatus']);
+        // Tasks — permission-gated per action
+        Route::get('tasks',        [TaskController::class, 'index'])->middleware('permission:tasks.view');
+        Route::get('tasks/{id}',   [TaskController::class, 'show'])->middleware('permission:tasks.view');
+        Route::post('tasks',       [TaskController::class, 'store'])->middleware('permission:tasks.create');
+        Route::put('tasks/{id}',   [TaskController::class, 'update'])->middleware('permission:tasks.edit');
+        Route::delete('tasks/{id}',[TaskController::class, 'destroy'])->middleware('permission:tasks.delete');
+        Route::put('tasks/{id}/status', [TaskController::class, 'updateStatus'])->middleware('permission:tasks.edit');
+        Route::post('tasks/{id}/assignees', [TaskController::class, 'addAssignee'])->middleware('permission:tasks.assign');
+        Route::delete('tasks/{id}/assignees/{userId}', [TaskController::class, 'removeAssignee'])->middleware('permission:tasks.assign');
+        Route::post('tasks/{id}/mentions', [TaskController::class, 'addMention'])->middleware('permission:tasks.edit');
+        Route::delete('tasks/{id}/mentions/{userId}', [TaskController::class, 'removeMention'])->middleware('permission:tasks.edit');
 
         // Task Comments / Q&A
         Route::get('tasks/{taskId}/comments',                         [TaskCommentController::class, 'index']);
@@ -74,10 +98,15 @@ Route::prefix('v1')->group(function () {
         Route::put('notifications/{id}/read',        [NotificationController::class, 'markRead']);
 
         // Activity Logs
-        Route::get('activity-logs', [ActivityLogController::class, 'index']);
+        Route::get('activity-logs', [ActivityLogController::class, 'index'])->middleware('permission:activity.view');
 
-        // File Manager
+        // File Manager — viewing is scoped per-role inside the controller (own uploads,
+        // own tasks, or department/mentions for managers); deleting is ownership-checked inline.
         Route::get('files',         [FileController::class, 'index']);
         Route::delete('files/{id}', [FileController::class, 'destroy']);
+
+        // Branding Settings (inline isAdminOrAbove() check inside the controller)
+        Route::put('settings',       [SettingsController::class, 'update']);
+        Route::post('settings/logo', [SettingsController::class, 'updateLogo']);
     });
 });

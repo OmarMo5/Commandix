@@ -37,7 +37,7 @@ class AttachmentController extends Controller
     {
         $attachment = Attachment::findOrFail($id);
 
-        if ($attachment->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
+        if ($attachment->user_id !== auth()->id() && !auth()->user()->isAdminOrAbove()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

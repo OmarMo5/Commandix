@@ -177,7 +177,7 @@ class WorkflowController extends Controller
         $task = Task::findOrFail($taskId);
         $user = auth()->user();
 
-        if (!$user->isAdmin() && !$user->isManager() && $task->creator_id !== $user->id) {
+        if (!$user->isAdminOrAbove() && !$user->isManager() && $task->creator_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -192,7 +192,7 @@ class WorkflowController extends Controller
     private function authorizeView(Task $task): void
     {
         $user = auth()->user();
-        if ($user->isAdmin() || $user->isManager()) return;
+        if ($user->isAdminOrAbove() || $user->isManager()) return;
 
         $isAssigned = $task->assignees()->where('users.id', $user->id)->exists()
             || $task->workflowSteps()->where('user_id', $user->id)->exists()

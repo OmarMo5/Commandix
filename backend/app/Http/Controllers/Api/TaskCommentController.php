@@ -16,7 +16,11 @@ class TaskCommentController extends Controller
      */
     public function index(string $taskId)
     {
-        Task::findOrFail($taskId); // 404 guard
+        $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
+
+        if (!$this->authorizeTaskAccess($task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $comments = TaskComment::with(['user:id,name,avatar', 'replies.user:id,name,avatar'])
             ->where('task_id', $taskId)
@@ -33,7 +37,11 @@ class TaskCommentController extends Controller
      */
     public function store(Request $request, string $taskId)
     {
-        $task = Task::with(['creator', 'assignees', 'workflowSteps'])->findOrFail($taskId);
+        $task = Task::with(['creator', 'assignees', 'mentions', 'workflowSteps'])->findOrFail($taskId);
+
+        if (!$this->authorizeTaskAccess($task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
             'content'     => 'required|string|max:2000',
@@ -60,6 +68,9 @@ class TaskCommentController extends Controller
 
         // Assignees
         $notifyIds = $notifyIds->merge($task->assignees->pluck('id'));
+
+        // Mentioned users (e.g. another department's manager looped in)
+        $notifyIds = $notifyIds->merge($task->mentions->pluck('id'));
 
         // Workflow step users
         $notifyIds = $notifyIds->merge($task->workflowSteps->pluck('user_id'));
@@ -98,6 +109,12 @@ class TaskCommentController extends Controller
      */
     public function resolve(string $taskId, string $commentId)
     {
+        $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
+
+        if (!$this->authorizeTaskAccess($task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $comment = TaskComment::where('task_id', $taskId)->findOrFail($commentId);
 
         if (!$comment->is_question) {
@@ -118,12 +135,28 @@ class TaskCommentController extends Controller
         $comment = TaskComment::where('task_id', $taskId)->findOrFail($commentId);
         $user    = auth()->user();
 
-        if ($comment->user_id !== $user->id && !$user->isAdmin()) {
+        if ($comment->user_id !== $user->id && !$user->isAdminOrAbove()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $comment->delete();
 
         return response()->json(['message' => 'Deleted.']);
+    }
+
+    /**
+     * Only people involved in the task (plus Admin/Super Admin for oversight)
+     * can read or post in its chat: creator, assignees, mentioned managers,
+     * or the manager of the task's own department.
+     */
+    private function authorizeTaskAccess(Task $task): bool
+    {
+        $user = auth()->user();
+
+        return $user->isAdminOrAbove()
+            || $task->creator_id === $user->id
+            || $task->assignees->contains('id', $user->id)
+            || $task->mentions->contains('id', $user->id)
+            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id);
     }
 }

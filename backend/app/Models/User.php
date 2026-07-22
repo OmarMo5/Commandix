@@ -53,6 +53,7 @@ class User extends Authenticatable
 
     public function hasPermission(string $permission): bool
     {
+        if ($this->isSuperAdmin()) return true;
         if (!$this->role) return false;
         return $this->role->permissions()->where('name', $permission)->exists();
     }
@@ -60,6 +61,16 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role?->name === 'admin';
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role?->name === 'super_admin';
+    }
+
+    public function isAdminOrAbove(): bool
+    {
+        return $this->isAdmin() || $this->isSuperAdmin();
     }
 
     public function isManager(): bool

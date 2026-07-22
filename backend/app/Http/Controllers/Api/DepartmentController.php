@@ -21,8 +21,8 @@ class DepartmentController extends Controller
                                    ->select('users.id','users.name','users.email','users.avatar','users.role_id','users.department_id','users.is_active'),
         ])->withCount('tasks');
 
-        if ($user->isAdmin()) {
-            // Admin sees everything
+        if ($user->isAdminOrAbove()) {
+            // Admin / Super Admin see everything
         } elseif ($user->isManager()) {
             // Manager sees only their own department
             if ($user->department_id) {
@@ -143,7 +143,7 @@ class DepartmentController extends Controller
         $sender    = $request->user();
         $recipient = User::with('department:id,name')->findOrFail($request->to_manager_id);
 
-        if (!$sender->isAdmin() && !$sender->isManager()) {
+        if (!$sender->isAdminOrAbove() && !$sender->isManager()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
