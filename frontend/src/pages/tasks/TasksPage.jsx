@@ -20,7 +20,7 @@ export default function TasksPage() {
   const [search, setSearch]           = useState('');
   const [dragOverCol, setDragOverCol] = useState(null);   // column key being dragged over
   const dragTaskId = useRef(null);                         // id of task being dragged
-  const { isAdmin, isManager } = useAuth();
+  const { isAdminOrAbove, isManager } = useAuth();
 
   const fetchTasks = async () => {
     try {
@@ -89,7 +89,7 @@ export default function TasksPage() {
           <h1 className="page-title">Tasks</h1>
           <p className="page-subtitle">{tasks.length} total tasks</p>
         </div>
-        {(isAdmin() || isManager()) && (
+        {(isAdminOrAbove() || isManager()) && (
           <button className="btn-accent" onClick={() => { setEditTask(null); setShowModal(true); }}>
             + New Task
           </button>
@@ -184,8 +184,8 @@ export default function TasksPage() {
 /* ── Task Card ─────────────────────────────────────────────────────────────── */
 
 function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart, onDragEnd }) {
-  const { isAdmin, isManager, user } = useAuth();
-  const canEdit    = isAdmin() || isManager() || task.creator_id === user?.id;
+  const { isAdminOrAbove, isManager, user } = useAuth();
+  const canEdit    = isAdminOrAbove() || isManager() || task.creator_id === user?.id;
   const canMove    = canEdit || task.assignees?.some(a => a.id === user?.id);
   const otherStats = ['pending', 'in_progress', 'completed'].filter(s => s !== task.status);
 

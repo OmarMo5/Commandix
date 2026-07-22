@@ -25,7 +25,15 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [replyText, setReplyText]     = useState('');
   const [posting, setPosting]         = useState(false);
   const commentsEndRef = useRef(null);
-  const { user, isAdmin, isManager }  = useAuth();
+  const { user, isAdminOrAbove, isManager }  = useAuth();
+  // Assignee management
+  const [candidateUsers, setCandidateUsers] = useState([]);
+  const [newAssigneeId, setNewAssigneeId]   = useState('');
+  const [assigneeBusy, setAssigneeBusy]     = useState(false);
+  // Mention management
+  const [candidateManagers, setCandidateManagers] = useState([]);
+  const [newMentionId, setNewMentionId]     = useState('');
+  const [mentionBusy, setMentionBusy]       = useState(false);
 
   const loadTask = () =>
     api.get(`/tasks/${taskId}`)
@@ -44,6 +52,82 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     loadTask();
     loadComments();
   }, [taskId]);
+
+  // ── Assignee management ───────────────────────────────────────────────────
+  const canManageAssignees = task && (
+    isAdminOrAbove() ||
+    (isManager() && (
+      (task.department?.id && task.department.id === user?.department?.id) ||
+      task.mentions?.some(m => m.id === user?.id)
+    ))
+  );
+
+  useEffect(() => {
+    if (!canManageAssignees) return;
+    api.get('/users', { params: { per_page: 200 } }).then(r => setCandidateUsers(r.data.data || []));
+    // eslint-disable-next-line
+  }, [canManageAssignees]);
+
+  const addAssignee = async () => {
+    if (!newAssigneeId) return;
+    setAssigneeBusy(true);
+    try {
+      await api.post(`/tasks/${taskId}/assignees`, { user_id: newAssigneeId });
+      setNewAssigneeId('');
+      await loadTask();
+      toast.success('Assignee added');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add assignee');
+    } finally { setAssigneeBusy(false); }
+  };
+
+  const removeAssignee = async (userId) => {
+    setAssigneeBusy(true);
+    try {
+      await api.delete(`/tasks/${taskId}/assignees/${userId}`);
+      await loadTask();
+      toast.success('Assignee removed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove assignee');
+    } finally { setAssigneeBusy(false); }
+  };
+
+  // ── Mention management ────────────────────────────────────────────────────
+  const canManageMentions = task && (
+    isAdminOrAbove() ||
+    task.creator_id === user?.id ||
+    (isManager() && task.department?.id && task.department.id === user?.department?.id)
+  );
+
+  useEffect(() => {
+    if (!canManageMentions) return;
+    api.get('/departments/managers-list').then(r => setCandidateManagers(r.data || []));
+    // eslint-disable-next-line
+  }, [canManageMentions]);
+
+  const addMention = async () => {
+    if (!newMentionId) return;
+    setMentionBusy(true);
+    try {
+      await api.post(`/tasks/${taskId}/mentions`, { user_id: newMentionId });
+      setNewMentionId('');
+      await loadTask();
+      toast.success('Manager mentioned');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add mention');
+    } finally { setMentionBusy(false); }
+  };
+
+  const removeMention = async (userId) => {
+    setMentionBusy(true);
+    try {
+      await api.delete(`/tasks/${taskId}/mentions/${userId}`);
+      await loadTask();
+      toast.success('Mention removed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove mention');
+    } finally { setMentionBusy(false); }
+  };
 
   // scroll to bottom when comments tab opened
   useEffect(() => {
@@ -156,7 +240,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const myActiveStep  = task?.workflowSteps?.find(s => s.user_id === user?.id && s.status === 'active');
   const canChangeStatus = !task?.workflow_enabled &&
-    (isAdmin() || isManager() || task?.assignees?.some(a => a.id === user?.id) || task?.creator_id === user?.id);
+    (isAdminOrAbove() || isManager() || task?.assignees?.some(a => a.id === user?.id) || task?.creator_id === user?.id);
   const nextStatuses  = task ? ['pending', 'in_progress', 'completed'].filter(s => s !== task.status) : [];
   const fileIcon      = (t) => t?.includes('image') ? '🖼️' : t?.includes('pdf') ? '📄' : '📎';
   const unansweredQ   = comments.filter(c => c.is_question && !c.is_answered).length;
@@ -263,23 +347,91 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                             {task.assignees.map(u => (
                               <div key={u.id} className="d-flex align-items-center gap-2">
                                 <UserAvatar user={u} size={28} />
-                                <span style={{ fontSize: 13 }}>{u.name}</span>
+                                <span style={{ fontSize: 13, flex: 1 }}>{u.name}</span>
                                 {u.id === user?.id && <YouBadge />}
+                                {canManageAssignees && (
+                                  <button
+                                    onClick={() => removeAssignee(u.id)}
+                                    disabled={assigneeBusy}
+                                    title="Remove assignee"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
+                                  >✕</button>
+                                )}
                               </div>
                             ))}
                           </div>
                         ) : <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No one assigned</span>}
 
-                        {task.mentions?.length > 0 && (
+                        {canManageAssignees && (
+                          <div className="d-flex gap-2 mt-2">
+                            <select
+                              className="form-select form-select-sm"
+                              value={newAssigneeId}
+                              onChange={e => setNewAssigneeId(e.target.value)}
+                              style={{ fontSize: 12 }}
+                            >
+                              <option value="">+ Add assignee...</option>
+                              {candidateUsers
+                                .filter(u => !task.assignees?.some(a => a.id === u.id))
+                                .map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={addAssignee}
+                              disabled={!newAssigneeId || assigneeBusy}
+                              style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                            >Add</button>
+                          </div>
+                        )}
+
+                        {(task.mentions?.length > 0 || canManageMentions) && (
                           <div className="mt-3">
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Mentioned:</div>
-                            <div className="d-flex flex-wrap gap-1">
-                              {task.mentions.map(u => (
-                                <span key={u.id} style={{ fontSize: 12, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: 20 }}>
-                                  @{u.name}
-                                </span>
-                              ))}
-                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Mentioned managers:</div>
+                            {task.mentions?.length > 0 ? (
+                              <div className="d-flex flex-wrap gap-1 mb-2">
+                                {task.mentions.map(u => (
+                                  <span key={u.id} style={{ fontSize: 12, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    @{u.name}
+                                    {canManageMentions && (
+                                      <button
+                                        onClick={() => removeMention(u.id)}
+                                        disabled={mentionBusy}
+                                        title="Remove mention"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12, padding: 0, lineHeight: 1 }}
+                                      >✕</button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No one mentioned</span>
+                            )}
+
+                            {canManageMentions && (
+                              <div className="d-flex gap-2 mt-1">
+                                <select
+                                  className="form-select form-select-sm"
+                                  value={newMentionId}
+                                  onChange={e => setNewMentionId(e.target.value)}
+                                  style={{ fontSize: 12 }}
+                                >
+                                  <option value="">+ Mention a manager...</option>
+                                  {candidateManagers
+                                    .filter(u => !task.mentions?.some(m => m.id === u.id))
+                                    .map(u => (
+                                      <option key={u.id} value={u.id}>
+                                        {u.name}{u.department?.name ? ` (${u.department.name})` : ''}
+                                      </option>
+                                    ))}
+                                </select>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={addMention}
+                                  disabled={!newMentionId || mentionBusy}
+                                  style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                                >Add</button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -318,7 +470,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   by {att.user?.name} · {(att.file_size / 1024).toFixed(0)} KB
                                 </div>
                               </div>
-                              {(isAdmin() || att.user?.id === user?.id) && (
+                              {(isAdminOrAbove() || att.user?.id === user?.id) && (
                                 <button onClick={() => deleteAttachment(att.id)}
                                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }}>🗑️</button>
                               )}
@@ -395,7 +547,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           comment={comment}
                           taskId={taskId}
                           currentUser={user}
-                          isAdmin={isAdmin()}
+                          isAdmin={isAdminOrAbove()}
                           isCreator={task.creator_id === user?.id}
                           replyTo={replyTo}
                           replyText={replyText}

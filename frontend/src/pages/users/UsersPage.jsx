@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
+import { useAuth } from '../../context/AuthContext';
 
 export default function UsersPage() {
+  const { isSuperAdmin } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -207,7 +209,9 @@ export default function UsersPage() {
                       <label className="form-label">Role</label>
                       <select className="form-select" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: e.target.value }))}>
                         <option value="">No Role</option>
-                        {roles.map(r => <option key={r.id} value={r.id}>{r.display_name}</option>)}
+                        {roles
+                          .filter(r => isSuperAdmin() || !['admin', 'super_admin'].includes(r.name))
+                          .map(r => <option key={r.id} value={r.id}>{r.display_name}</option>)}
                       </select>
                     </div>
                     <div className="col-6">

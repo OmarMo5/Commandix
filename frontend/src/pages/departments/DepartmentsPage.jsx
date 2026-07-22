@@ -11,7 +11,7 @@ export default function DepartmentsPage() {
   const [editDept, setEditDept]       = useState(null);
   const [showMsgModal, setShowMsgModal]   = useState(false);
   const [allUsers, setAllUsers]       = useState([]);
-  const { isAdmin, isManager, user }  = useAuth();
+  const { isAdminOrAbove, isManager, user }  = useAuth();
 
   const fetchDepts = async () => {
     setLoading(true);
@@ -27,7 +27,7 @@ export default function DepartmentsPage() {
   useEffect(() => {
     fetchDepts();
     // admin/manager needs users for the create/edit form
-    if (isAdmin()) {
+    if (isAdminOrAbove()) {
       api.get('/users', { params: { per_page: 200 } }).then(r => setAllUsers(r.data.data || []));
     }
   }, []);
@@ -61,7 +61,7 @@ export default function DepartmentsPage() {
           </p>
         </div>
         <div className="d-flex gap-2">
-          {(isAdmin() || isManager()) && (
+          {(isAdminOrAbove() || isManager()) && (
             <button
               className="btn btn-outline-secondary btn-sm"
               style={{ fontSize: 13 }}
@@ -70,7 +70,7 @@ export default function DepartmentsPage() {
               ✉️ Message a Manager
             </button>
           )}
-          {isAdmin() && (
+          {isAdminOrAbove() && (
             <button className="btn-accent" onClick={() => { setEditDept(null); setShowDeptModal(true); }}>
               + Add Department
             </button>
@@ -93,7 +93,7 @@ export default function DepartmentsPage() {
               onToggle={() => toggleExpand(dept.id)}
               onEdit={() => { setEditDept(dept); setShowDeptModal(true); }}
               onDelete={() => deleteDept(dept.id)}
-              isAdmin={isAdmin()}
+              isAdmin={isAdminOrAbove()}
               currentUserId={user?.id}
             />
           ))}

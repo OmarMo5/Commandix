@@ -84,7 +84,7 @@ export default function RolesPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Roles & Permissions</h1>
-          <p className="page-subtitle">{roles.length} roles</p>
+          <p className="page-subtitle">Super Admin only — controls what Admins, Managers, and Employees can access ({roles.length} roles)</p>
         </div>
         <button className="btn-accent" onClick={() => openModal()}>+ Add Role</button>
       </div>

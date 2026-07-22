@@ -110,12 +110,12 @@ function StatCard({ stat }) {
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user, isAdmin, isManager } = useAuth();
+  const { user, isAdminOrAbove, isManager } = useAuth();
   const { dark } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && !isAdmin() && !isManager()) {
+    if (user && !isAdminOrAbove() && !isManager()) {
       navigate('/tasks', { replace: true });
       return;
     }
@@ -124,8 +124,8 @@ export default function DashboardPage() {
 
   if (loading) return <SkeletonDashboard />;
 
-  const gridCols = isAdmin() ? 'col-6 col-md-4 col-lg-2' : 'col-6 col-md-3';
-  const statDefs = STAT_DEFS(stats, isAdmin());
+  const gridCols = isAdminOrAbove() ? 'col-6 col-md-4 col-lg-2' : 'col-6 col-md-3';
+  const statDefs = STAT_DEFS(stats, isAdminOrAbove());
 
   const chartTextColor = dark ? '#94a3b8' : '#64748b';
   const chartGridColor = dark ? 'rgba(30,42,58,0.8)' : 'rgba(226,232,240,0.8)';

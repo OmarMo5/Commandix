@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import WorkflowSetup from './WorkflowSetup';
-import { useAuth } from '../../context/AuthContext';
 
 export default function TaskModal({ task, onClose, onSaved }) {
-  const { user: currentUser } = useAuth();
   const [tab, setTab] = useState('details'); // 'details' | 'workflow'
   const [form, setForm] = useState({
     title: task?.title || '',
@@ -20,6 +18,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
   const [workflowSteps, setWorkflowSteps] = useState([]); // [ { user_id, name } ]
   const [enableWorkflow, setEnableWorkflow] = useState(false);
   const [users, setUsers] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [attachment, setAttachment] = useState(null);
@@ -27,6 +26,8 @@ export default function TaskModal({ task, onClose, onSaved }) {
   useEffect(() => {
     api.get('/users', { params: { per_page: 100 } }).then(r => setUsers(r.data.data || []));
     api.get('/departments').then(r => setDepartments(r.data));
+    // Managers/admins across all departments — for looping another department in via @mention
+    api.get('/departments/managers-list').then(r => setManagers(r.data || []));
     // eslint-disable-next-line
     // If editing a task with existing workflow, preload
     if (task?.workflow_enabled && task?.workflowSteps?.length) {
@@ -201,18 +202,23 @@ export default function TaskModal({ task, onClose, onSaved }) {
                   </div>
 
                   <div className="col-md-6">
-                    <label className="form-label">Mention (@)</label>
+                    <label className="form-label">Mention a Manager (@)</label>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                      Loop in another department's manager — they'll be able to view this task, chat on it, and assign their own team.
+                    </div>
                     <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
-                      {users
-                        .filter(u => u.id !== currentUser?.id)
-                        .map(u => (
-                          <div key={u.id} className="form-check" style={{ marginBottom: 4 }}>
-                            <input className="form-check-input" type="checkbox" id={`mention-${u.id}`}
-                              checked={form.mentions.includes(u.id)} onChange={() => toggleUser(u.id, 'mentions')} />
-                            <label className="form-check-label" htmlFor={`mention-${u.id}`} style={{ fontSize: 13 }}>@{u.name}</label>
-                          </div>
-                        ))
-                      }
+                      {managers.length === 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No other managers found.</div>
+                      )}
+                      {managers.map(u => (
+                        <div key={u.id} className="form-check" style={{ marginBottom: 4 }}>
+                          <input className="form-check-input" type="checkbox" id={`mention-${u.id}`}
+                            checked={form.mentions.includes(u.id)} onChange={() => toggleUser(u.id, 'mentions')} />
+                          <label className="form-check-label" htmlFor={`mention-${u.id}`} style={{ fontSize: 13 }}>
+                            @{u.name} {u.department?.name ? `(${u.department.name})` : ''}
+                          </label>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>

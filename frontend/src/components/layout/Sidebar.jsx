@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, CheckSquare, Bell, Building2,
   Users, ShieldCheck, FolderOpen, Activity,
-  User, ChevronLeft, ChevronRight, Zap
+  User, ChevronLeft, ChevronRight, Zap, Palette
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', section: 'Main', managerOnly: true },
@@ -12,19 +13,22 @@ const navItems = [
   { path: '/notifications', icon: Bell, label: 'Notifications', section: 'Main' },
   { path: '/departments', icon: Building2, label: 'Departments', section: 'Management' },
   { path: '/users', icon: Users, label: 'Users', section: 'Management', adminOnly: true },
-  { path: '/roles', icon: ShieldCheck, label: 'Roles', section: 'Management', adminOnly: true },
+  { path: '/roles', icon: ShieldCheck, label: 'Roles & Permissions', section: 'Management', superAdminOnly: true },
   { path: '/files', icon: FolderOpen, label: 'Files', section: 'System' },
   { path: '/activity', icon: Activity, label: 'Activity Log', section: 'System', adminOnly: true },
+  { path: '/settings/branding', icon: Palette, label: 'Branding', section: 'System', superAdminOnly: true },
   { path: '/profile', icon: User, label: 'Profile', section: 'Account' },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
-  const { isAdmin, isManager } = useAuth();
+  const { isAdminOrAbove, isSuperAdmin, isManager } = useAuth();
+  const { appName, logoUrl } = useSettings();
   const sections = [...new Set(navItems.map(i => i.section))];
 
   const isVisible = (item) => {
-    if (item.adminOnly && !isAdmin()) return false;
-    if (item.managerOnly && !isAdmin() && !isManager()) return false;
+    if (item.superAdminOnly && !isSuperAdmin()) return false;
+    if (item.adminOnly && !isAdminOrAbove()) return false;
+    if (item.managerOnly && !isAdminOrAbove() && !isManager()) return false;
     return true;
   };
 
@@ -33,9 +37,11 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* Brand */}
       <div className="sidebar-brand">
         <div className="brand-icon">
-          <Zap size={20} color="#fff" strokeWidth={2.5} />
+          {logoUrl
+            ? <img src={logoUrl} alt={appName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
+            : <Zap size={20} color="#fff" strokeWidth={2.5} />}
         </div>
-        {!collapsed && <span className="brand-name">Commandix</span>}
+        {!collapsed && <span className="brand-name">{appName}</span>}
       </div>
 
       {/* Nav */}

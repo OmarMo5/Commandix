@@ -17,7 +17,7 @@ export default function FilesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState(null);
-  const { isAdmin } = useAuth();
+  const { isAdminOrAbove } = useAuth();
 
   const fetch = async () => {
     setLoading(true);
@@ -74,7 +74,7 @@ export default function FilesPage() {
               <th>Uploaded By</th>
               <th>Size</th>
               <th>Date</th>
-              {isAdmin() && <th>Actions</th>}
+              {isAdminOrAbove() && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -103,7 +103,7 @@ export default function FilesPage() {
                 <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                   {new Date(file.created_at).toLocaleDateString()}
                 </td>
-                {isAdmin() && (
+                {isAdminOrAbove() && (
                   <td>
                     <button className="btn btn-sm btn-outline-danger" onClick={() => deleteFile(file.id)}>🗑️</button>
                   </td>

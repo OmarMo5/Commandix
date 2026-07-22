@@ -2,12 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SettingsProvider } from './context/SettingsContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import SuperAdminRoute from './components/common/SuperAdminRoute';
 import AppLayout from './components/layout/AppLayout';
 
-import RoleGatePage from './pages/auth/RoleGatePage';
 import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import TasksPage from './pages/tasks/TasksPage';
 import DepartmentsPage from './pages/departments/DepartmentsPage';
@@ -17,36 +17,41 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import FilesPage from './pages/files/FilesPage';
 import ActivityPage from './pages/activity/ActivityPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import BrandingPage from './pages/settings/BrandingPage';
 
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<RoleGatePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/home" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/tasks" element={<TasksPage />} />
-                <Route path="/departments" element={<DepartmentsPage />} />
-                <Route path="/users" element={<UsersPage />} />
-                <Route path="/roles" element={<RolesPage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/files" element={<FilesPage />} />
-                <Route path="/activity" element={<ActivityPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
+      <SettingsProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/departments" element={<DepartmentsPage />} />
+                  <Route path="/users" element={<UsersPage />} />
+                  <Route element={<SuperAdminRoute />}>
+                    <Route path="/roles" element={<RolesPage />} />
+                    <Route path="/settings/branding" element={<BrandingPage />} />
+                  </Route>
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/files" element={<FilesPage />} />
+                  <Route path="/activity" element={<ActivityPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
-          </Routes>
-        </BrowserRouter>
-        <ToastContainer position="top-right" theme="colored" autoClose={3000} />
-      </AuthProvider>
+            </Routes>
+          </BrowserRouter>
+          <ToastContainer position="top-right" theme="colored" autoClose={3000} />
+        </AuthProvider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 }

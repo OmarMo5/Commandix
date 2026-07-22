@@ -1,23 +1,46 @@
 import { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Mail, Lock, Zap, LogIn, ChevronLeft, User, Users, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Zap, LogIn, ShieldCheck, Users2, ListChecks, Eye, EyeOff, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 
-const ROLE_ICONS = { employee: User, manager: Users, admin: ShieldCheck };
-const ROLE_COLORS = { employee: '#10b981', manager: '#3b82f6', admin: '#6366f1' };
+const FEATURES = [
+  { icon: ShieldCheck, text: 'Role-based access control for every team' },
+  { icon: Users2, text: 'Cross-department collaboration on shared tasks' },
+  { icon: ListChecks, text: 'Real-time task tracking from assignment to done' },
+];
+
+const MOCK_TASKS = [
+  { color: '#f59e0b', width: '78%' },
+  { color: '#6366f1', width: '55%' },
+  { color: '#10b981', width: '66%' },
+];
+
+function BrandMark({ appName, logoUrl, size = 44 }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.27,
+      background: logoUrl ? 'transparent' : 'var(--accent-gradient)',
+      border: logoUrl ? '1px solid rgba(255,255,255,0.14)' : 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+      boxShadow: logoUrl ? 'none' : '0 6px 20px rgba(99,102,241,0.4)',
+    }}>
+      {logoUrl
+        ? <img src={logoUrl} alt={appName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <Zap size={size * 0.48} color="#fff" strokeWidth={2.5} />}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { appName, logoUrl } = useSettings();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const roleId = location.state?.role || null;
-  const roleTitle = location.state?.roleTitle || null;
-  const RoleIcon = roleId ? ROLE_ICONS[roleId] : null;
-  const roleColor = roleId ? ROLE_COLORS[roleId] : '#6366f1';
+  const year = new Date().getFullYear();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,121 +57,145 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card" style={{ maxWidth: 420 }}>
+      <div className="auth-shell">
 
-        {/* Back to role selection */}
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'none', border: 'none', color: '#4a5568',
-            cursor: 'pointer', fontSize: 13, marginBottom: 24,
-            padding: 0, transition: 'color 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#8b9db5'}
-          onMouseLeave={e => e.currentTarget.style.color = '#4a5568'}
-        >
-          <ChevronLeft size={16} /> Back
-        </button>
+        {/* Brand panel — hidden on narrow screens */}
+        <div className="auth-brand-panel">
+          <div className="auth-brand-top">
+            <div className="auth-fade-in" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 34 }}>
+              <BrandMark appName={appName} logoUrl={logoUrl} />
+              <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.01em' }}>{appName}</span>
+            </div>
 
-        {/* Brand */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{
-            width: 50, height: 50,
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 14px',
-            boxShadow: '0 6px 20px rgba(99,102,241,0.4)',
-          }}>
-            <Zap size={24} color="#fff" strokeWidth={2.5} />
+            <span className="auth-eyebrow auth-fade-in" style={{ animationDelay: '0.05s' }}>Team Workspace</span>
+
+            <h1 className="auth-fade-in" style={{ fontSize: 33, fontWeight: 800, lineHeight: 1.18, letterSpacing: '-0.02em', marginBottom: 14, animationDelay: '0.08s' }}>
+              Work flows better<br />when access is clear.
+            </h1>
+            <p className="auth-fade-in" style={{ fontSize: 14.5, color: '#8b9db5', marginBottom: 28, lineHeight: 1.6, maxWidth: 380, animationDelay: '0.12s' }}>
+              Super Admin, Admin, Manager, Employee — everyone gets exactly the access they need, nothing they don't.
+            </p>
+
+            <div className="auth-fade-in" style={{ animationDelay: '0.16s' }}>
+              {FEATURES.map((f, i) => {
+                const Icon = f.icon;
+                return (
+                  <div className="auth-feature" key={i}>
+                    <div className="auth-feature-icon">
+                      <Icon size={14} color="#a5b4fc" strokeWidth={2.2} />
+                    </div>
+                    <span style={{ fontSize: 13.5, color: '#c3cde0' }}>{f.text}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <h2 style={{ fontWeight: 800, fontSize: 20, color: '#f0f6ff', letterSpacing: '-0.02em', marginBottom: 4 }}>
-            Welcome back
-          </h2>
-          <p style={{ color: '#4a5568', fontSize: 13.5 }}>Sign in to your workspace</p>
+
+          <div className="auth-brand-bottom">
+            {/* Decorative task-board preview */}
+            <div className="auth-mock-card auth-fade-in" style={{ animationDelay: '0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#6b7fa3' }}>
+                  Today's Tasks
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#a5b4fc', background: 'rgba(99,102,241,0.12)', padding: '2px 8px', borderRadius: 20 }}>
+                  Live
+                </span>
+              </div>
+              {MOCK_TASKS.map((t, i) => (
+                <div className="auth-mock-row" key={i}>
+                  <span className="auth-mock-dot" style={{ background: t.color }} />
+                  <span className="auth-mock-bar" style={{ width: t.width }} />
+                </div>
+              ))}
+            </div>
+
+            <div className="auth-fade-in" style={{ marginTop: 22, fontSize: 12, color: '#3d4761', animationDelay: '0.24s' }}>
+              © {year} {appName}. All rights reserved.
+            </div>
+          </div>
         </div>
 
-        {/* Role badge */}
-        {roleId && RoleIcon && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '10px 14px',
-            background: `rgba(${roleId === 'employee' ? '16,185,129' : roleId === 'manager' ? '59,130,246' : '99,102,241'},0.1)`,
-            border: `1px solid ${roleColor}30`,
-            borderRadius: 10, marginBottom: 22,
-          }}>
-            <RoleIcon size={16} color={roleColor} />
-            <span style={{ fontSize: 13, color: '#8b9db5' }}>
-              Signing in as <strong style={{ color: roleColor }}>{roleTitle}</strong>
-            </span>
-          </div>
-        )}
+        {/* Form panel */}
+        <div className="auth-form-panel">
+          <div className="auth-card auth-fade-in">
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label" style={{ color: '#8b9db5' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={15} style={{
-                position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)',
-                color: '#4a5568', pointerEvents: 'none',
-              }} />
-              <input
-                type="email"
-                className="form-control"
-                style={{ paddingLeft: 38, background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: '#f0f6ff' }}
-                placeholder="your@email.com"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                required
-                autoFocus
-              />
+            {/* Brand — shown only on narrow screens where the left panel is hidden */}
+            <div className="auth-form-brand" style={{ textAlign: 'center', marginBottom: 26 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+                <BrandMark appName={appName} logoUrl={logoUrl} size={48} />
+              </div>
+              <span style={{ fontWeight: 800, fontSize: 17, color: '#f0f6ff' }}>{appName}</span>
             </div>
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <label className="form-label" style={{ color: '#8b9db5' }}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={15} style={{
-                position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)',
-                color: '#4a5568', pointerEvents: 'none',
-              }} />
-              <input
-                type="password"
-                className="form-control"
-                style={{ paddingLeft: 38, background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)', color: '#f0f6ff' }}
-                placeholder="••••••••"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                required
-              />
+
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontWeight: 800, fontSize: 22, color: '#f0f6ff', letterSpacing: '-0.02em', marginBottom: 6 }}>
+                Welcome back
+              </h2>
+              <p style={{ color: '#5c6885', fontSize: 13.5 }}>Sign in to your {appName} workspace</p>
             </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label className="form-label" style={{ color: '#8b9db5' }}>Email Address</label>
+                <div className="auth-input-wrap">
+                  <Mail size={15} style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: '#465066', pointerEvents: 'none',
+                  }} />
+                  <input
+                    type="email"
+                    className="auth-input"
+                    placeholder="your@email.com"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <label className="form-label" style={{ color: '#8b9db5' }}>Password</label>
+                <div className="auth-input-wrap">
+                  <Lock size={15} style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: '#465066', pointerEvents: 'none',
+                  }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="auth-input"
+                    style={{ paddingRight: 40 }}
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-pwd-toggle"
+                    onClick={() => setShowPassword(v => !v)}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 24, fontSize: 12, color: '#465066' }}>
+                <LifeBuoy size={12} />
+                <span>Forgot your password? Contact your administrator.</span>
+              </div>
+
+              <button type="submit" className="auth-submit-btn" disabled={loading}>
+                {loading ? <span className="auth-spinner" /> : <LogIn size={16} />}
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
           </div>
-
-          <button
-            type="submit"
-            className="btn-accent w-100"
-            disabled={loading}
-            style={{
-              padding: '11px', fontSize: 14, justifyContent: 'center',
-              background: `linear-gradient(135deg,${roleColor},${roleColor}bb)`,
-              boxShadow: `0 4px 14px ${roleColor}35`,
-            }}
-          >
-            <LogIn size={16} />
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <p style={{ textAlign: 'center', fontSize: 13, color: '#4a5568', marginTop: 18 }}>
-          Don't have an account?{' '}
-          <Link
-            to="/register"
-            state={location.state}
-            style={{ color: roleColor, textDecoration: 'none', fontWeight: 600 }}
-          >
-            Register
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
