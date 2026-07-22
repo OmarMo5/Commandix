@@ -46,11 +46,15 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $activityQuery = ActivityLog::with('user:id,name,avatar');
+        // The dashboard widget is a curated "what happened" summary, not the full
+        // audit trail (that's the dedicated Activity Log page) — login/logout noise
+        // (including anonymous failed-login attempts) never belongs here.
+        $activityQuery = ActivityLog::with('user:id,name,avatar')
+            ->whereNotIn('action', ['user_login', 'user_logout']);
 
         if (!$user->isAdminOrAbove()) {
             // Non-admins only get task activity within their own scope — never
-            // account-level noise (logins, other people's profile edits, etc.)
+            // account-level noise (other people's profile edits, role changes, etc.)
             $teamTaskIds = $user->isManager() && $user->department_id
                 ? Task::where('department_id', $user->department_id)->pluck('id')
                 : (clone $taskQuery)->pluck('id');
