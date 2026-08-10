@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, CheckSquare, Bell, Building2,
   Users, ShieldCheck, FolderOpen, Activity,
-  User, ChevronLeft, ChevronRight, Zap, Palette
+  User, ChevronLeft, ChevronRight, Zap, Palette, BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/users', icon: Users, label: 'Users', section: 'Management', adminOnly: true },
   { path: '/roles', icon: ShieldCheck, label: 'Roles & Permissions', section: 'Management', superAdminOnly: true },
   { path: '/files', icon: FolderOpen, label: 'Files', section: 'System' },
+  { path: '/reports', icon: BarChart3, label: 'Reports', section: 'System', adminOnly: true },
   { path: '/activity', icon: Activity, label: 'Activity Log', section: 'System', adminOnly: true },
   { path: '/settings/branding', icon: Palette, label: 'Branding', section: 'System', superAdminOnly: true },
   { path: '/profile', icon: User, label: 'Profile', section: 'Account' },

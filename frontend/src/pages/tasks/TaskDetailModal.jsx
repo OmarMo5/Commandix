@@ -34,6 +34,11 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [candidateManagers, setCandidateManagers] = useState([]);
   const [newMentionId, setNewMentionId]     = useState('');
   const [mentionBusy, setMentionBusy]       = useState(false);
+  // Checklist
+  const [checklist, setChecklist]           = useState([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [newChecklistTitle, setNewChecklistTitle] = useState('');
+  const [checklistBusy, setChecklistBusy]   = useState(false);
 
   const loadTask = () =>
     api.get(`/tasks/${taskId}`)
@@ -48,9 +53,18 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       .finally(() => setCommentsLoading(false));
   };
 
+  const loadChecklist = () => {
+    setChecklistLoading(true);
+    api.get(`/tasks/${taskId}/checklist`)
+      .then(r => setChecklist(r.data))
+      .catch(() => {})
+      .finally(() => setChecklistLoading(false));
+  };
+
   useEffect(() => {
     loadTask();
     loadComments();
+    loadChecklist();
   }, [taskId]);
 
   // ── Assignee management ───────────────────────────────────────────────────
@@ -127,6 +141,43 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove mention');
     } finally { setMentionBusy(false); }
+  };
+
+  // ── Checklist ──────────────────────────────────────────────────────────────
+  const canEditChecklist = task && (
+    isAdminOrAbove() ||
+    task.creator_id === user?.id ||
+    (isManager() && task.department?.id && task.department.id === user?.department?.id)
+  );
+  const canToggleChecklist = canEditChecklist || (task?.assignees?.some(a => a.id === user?.id));
+
+  const addChecklistItem = async () => {
+    if (!newChecklistTitle.trim()) return;
+    setChecklistBusy(true);
+    try {
+      const { data } = await api.post(`/tasks/${taskId}/checklist`, { title: newChecklistTitle.trim() });
+      setChecklist(prev => [...prev, data]);
+      setNewChecklistTitle('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add item');
+    } finally { setChecklistBusy(false); }
+  };
+
+  const toggleChecklistItem = async (item) => {
+    setChecklist(prev => prev.map(i => i.id === item.id ? { ...i, is_done: !i.is_done } : i));
+    try {
+      await api.put(`/tasks/${taskId}/checklist/${item.id}`, { is_done: !item.is_done });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update item');
+      setChecklist(prev => prev.map(i => i.id === item.id ? { ...i, is_done: item.is_done } : i));
+    }
+  };
+
+  const deleteChecklistItem = async (itemId) => {
+    try {
+      await api.delete(`/tasks/${taskId}/checklist/${itemId}`);
+      setChecklist(prev => prev.filter(i => i.id !== itemId));
+    } catch { toast.error('Failed to delete item'); }
   };
 
   // scroll to bottom when comments tab opened
@@ -276,6 +327,16 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                       {task.workflow_enabled && (
                         <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           🔄 Workflow
+                        </span>
+                      )}
+                      {task.recurrence && (
+                        <span style={{ fontSize: 12, background: '#10b98120', color: '#10b981', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                          🔁 Repeats {task.recurrence}
+                        </span>
+                      )}
+                      {task.recurrence_parent_id && (
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '3px 10px', background: 'var(--bg-primary)', borderRadius: 20, border: '1px solid var(--border-color)' }}>
+                          Auto-generated
                         </span>
                       )}
                       {task.department && (
@@ -450,6 +511,77 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                             </button>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Checklist */}
+                    {(checklist.length > 0 || canEditChecklist) && (
+                      <div className="mt-4">
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                          <SectionTitle>
+                            Checklist {checklist.length > 0 && `(${checklist.filter(i => i.is_done).length}/${checklist.length})`}
+                          </SectionTitle>
+                        </div>
+                        {checklist.length > 0 && (
+                          <div style={{ height: 5, borderRadius: 3, background: 'var(--bg-primary)', overflow: 'hidden', marginBottom: 12 }}>
+                            <div style={{
+                              height: '100%',
+                              width: `${(checklist.filter(i => i.is_done).length / checklist.length) * 100}%`,
+                              background: 'var(--accent-gradient)',
+                              transition: 'width 0.2s',
+                            }} />
+                          </div>
+                        )}
+                        {checklistLoading ? (
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading...</div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: canEditChecklist ? 10 : 0 }}>
+                            {checklist.map(item => (
+                              <div key={item.id} className="d-flex align-items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input"
+                                  checked={item.is_done}
+                                  disabled={!canToggleChecklist}
+                                  onChange={() => toggleChecklistItem(item)}
+                                  style={{ flexShrink: 0, margin: 0 }}
+                                />
+                                <span style={{
+                                  fontSize: 13.5, flex: 1,
+                                  color: item.is_done ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                  textDecoration: item.is_done ? 'line-through' : 'none',
+                                }}>
+                                  {item.title}
+                                </span>
+                                {canEditChecklist && (
+                                  <button
+                                    onClick={() => deleteChecklistItem(item.id)}
+                                    title="Remove item"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
+                                  >✕</button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {canEditChecklist && (
+                          <div className="d-flex gap-2">
+                            <input
+                              className="form-control form-control-sm"
+                              placeholder="Add a checklist item..."
+                              value={newChecklistTitle}
+                              onChange={e => setNewChecklistTitle(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && addChecklistItem()}
+                              style={{ fontSize: 13 }}
+                            />
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={addChecklistItem}
+                              disabled={!newChecklistTitle.trim() || checklistBusy}
+                              style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                            >Add</button>
+                          </div>
+                        )}
                       </div>
                     )}
 

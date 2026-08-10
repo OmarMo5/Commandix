@@ -14,6 +14,8 @@ export default function TaskModal({ task, onClose, onSaved }) {
     due_date: task?.due_date || '',
     assignees: task?.assignees?.map(u => u.id) || [],
     mentions: task?.mentions?.map(u => u.id) || [],
+    recurrence: task?.recurrence || '',
+    recurrence_end_date: task?.recurrence_end_date || '',
   });
   const [workflowSteps, setWorkflowSteps] = useState([]); // [ { user_id, name } ]
   const [enableWorkflow, setEnableWorkflow] = useState(false);
@@ -187,6 +189,23 @@ export default function TaskModal({ task, onClose, onSaved }) {
                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
                       onChange={e => setAttachment(e.target.files[0])} />
                   </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Repeat</label>
+                    <select className="form-select" value={form.recurrence} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}>
+                      <option value="">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                  {form.recurrence && (
+                    <div className="col-md-6">
+                      <label className="form-label">Repeat Until (optional)</label>
+                      <input type="date" className="form-control" value={form.recurrence_end_date}
+                        onChange={e => setForm(f => ({ ...f, recurrence_end_date: e.target.value }))} />
+                    </div>
+                  )}
 
                   <div className="col-md-6">
                     <label className="form-label">Assign To</label>

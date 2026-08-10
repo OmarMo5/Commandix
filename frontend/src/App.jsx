@@ -18,6 +18,7 @@ import FilesPage from './pages/files/FilesPage';
 import ActivityPage from './pages/activity/ActivityPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import BrandingPage from './pages/settings/BrandingPage';
+import ReportsPage from './pages/reports/ReportsPage';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
                   </Route>
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/files" element={<FilesPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/activity" element={<ActivityPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Route>
