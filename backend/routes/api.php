@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\TaskChecklistController;
 use App\Http\Controllers\Api\TaskCommentController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\UserController;
@@ -19,7 +21,7 @@ Route::prefix('v1')->group(function () {
 
     // ── Public ────────────────────────────────────────────────────────────────
     Route::prefix('auth')->group(function () {
-        Route::post('login', [AuthController::class, 'login']);
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     });
     Route::get('settings', [SettingsController::class, 'show']);
 
@@ -76,6 +78,12 @@ Route::prefix('v1')->group(function () {
         Route::post('tasks/{id}/mentions', [TaskController::class, 'addMention'])->middleware('permission:tasks.edit');
         Route::delete('tasks/{id}/mentions/{userId}', [TaskController::class, 'removeMention'])->middleware('permission:tasks.edit');
 
+        // Task Checklist / Subtasks
+        Route::get('tasks/{taskId}/checklist',                [TaskChecklistController::class, 'index']);
+        Route::post('tasks/{taskId}/checklist',                [TaskChecklistController::class, 'store']);
+        Route::put('tasks/{taskId}/checklist/{itemId}',        [TaskChecklistController::class, 'update']);
+        Route::delete('tasks/{taskId}/checklist/{itemId}',     [TaskChecklistController::class, 'destroy']);
+
         // Task Comments / Q&A
         Route::get('tasks/{taskId}/comments',                         [TaskCommentController::class, 'index']);
         Route::post('tasks/{taskId}/comments',                        [TaskCommentController::class, 'store']);
@@ -108,5 +116,9 @@ Route::prefix('v1')->group(function () {
         // Branding Settings (inline isAdminOrAbove() check inside the controller)
         Route::put('settings',       [SettingsController::class, 'update']);
         Route::post('settings/logo', [SettingsController::class, 'updateLogo']);
+
+        // Reports (inline isAdminOrAbove() check inside the controller)
+        Route::get('reports/performance', [ReportController::class, 'performance']);
+        Route::get('reports/export',      [ReportController::class, 'export']);
     });
 });

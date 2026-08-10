@@ -74,6 +74,8 @@ class TaskController extends Controller
             'assignees.*' => 'exists:users,id',
             'mentions' => 'nullable|array',
             'mentions.*' => 'exists:users,id',
+            'recurrence' => 'nullable|in:daily,weekly,monthly',
+            'recurrence_end_date' => 'nullable|date',
         ]);
 
         $task = Task::create([
@@ -85,6 +87,8 @@ class TaskController extends Controller
             'department_id'    => $request->department_id,
             'due_date'         => $request->due_date,
             'workflow_enabled' => false,
+            'recurrence'          => $request->recurrence,
+            'recurrence_end_date' => $request->recurrence_end_date,
         ]);
 
         if ($request->assignees) {
@@ -172,10 +176,12 @@ class TaskController extends Controller
             'assignees.*' => 'exists:users,id',
             'mentions' => 'nullable|array',
             'mentions.*' => 'exists:users,id',
+            'recurrence' => 'nullable|in:daily,weekly,monthly',
+            'recurrence_end_date' => 'nullable|date',
         ]);
 
         $old = $task->toArray();
-        $task->update($request->only(['title', 'description', 'priority', 'department_id', 'due_date']));
+        $task->update($request->only(['title', 'description', 'priority', 'department_id', 'due_date', 'recurrence', 'recurrence_end_date']));
 
         if ($request->has('assignees')) {
             $task->assignees()->sync($request->assignees ?? []);

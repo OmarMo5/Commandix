@@ -11,6 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_MINUTES = 15;
+
     public function login(Request $request)
     {
         $request->validate([
@@ -20,7 +23,28 @@ class AuthController extends Controller
 
         $user = User::with(['role.permissions', 'department'])->where('email', $request->email)->first();
 
+        if ($user && $user->locked_until && $user->locked_until->isFuture()) {
+            $minutes = now()->diffInMinutes($user->locked_until, true);
+            return response()->json([
+                'message' => "Too many failed attempts. Try again in " . max(1, ceil($minutes)) . ' minute(s).',
+            ], 423);
+        }
+
         if (!$user || !Hash::check($request->password, $user->password)) {
+            if ($user) {
+                $user->failed_login_attempts++;
+                if ($user->failed_login_attempts >= self::MAX_LOGIN_ATTEMPTS) {
+                    $user->locked_until = now()->addMinutes(self::LOCKOUT_MINUTES);
+                    $user->failed_login_attempts = 0;
+                    $user->save();
+
+                    throw ValidationException::withMessages([
+                        'email' => ["Too many failed attempts. Account locked for " . self::LOCKOUT_MINUTES . ' minutes.'],
+                    ]);
+                }
+                $user->save();
+            }
+
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
@@ -30,9 +54,15 @@ class AuthController extends Controller
             return response()->json(['message' => 'Account is deactivated.'], 403);
         }
 
+        if ($user->failed_login_attempts > 0 || $user->locked_until) {
+            $user->failed_login_attempts = 0;
+            $user->locked_until = null;
+            $user->save();
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        ActivityLog::record('user_login', $user);
+        ActivityLog::record('user_login', $user, [], [], $user->id);
 
         return response()->json([
             'token' => $token,
