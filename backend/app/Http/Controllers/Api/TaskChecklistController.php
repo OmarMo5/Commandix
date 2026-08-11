@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\TaskChecklistItem;
+use App\Support\TaskAccess;
 use Illuminate\Http\Request;
 
 class TaskChecklistController extends Controller
@@ -16,7 +17,7 @@ class TaskChecklistController extends Controller
     {
         $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
 
-        if (!$this->canViewTask($task)) {
+        if (!TaskAccess::canView(auth()->user(), $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -30,9 +31,14 @@ class TaskChecklistController extends Controller
     public function store(Request $request, string $taskId)
     {
         $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
+        $user = auth()->user();
 
-        if (!$this->canEditTask($task)) {
+        if (!TaskAccess::canEdit($user, $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'This group is closed.'], 423);
         }
 
         $request->validate(['title' => 'required|string|max:255']);
@@ -51,7 +57,7 @@ class TaskChecklistController extends Controller
 
     /**
      * PUT /tasks/{taskId}/checklist/{itemId}
-     * Body: { title?, is_done? } — toggling is_done is also allowed for any assignee;
+     * Body: { title?, is_done? } — toggling is_done is also allowed for any assignee/member;
      * editing the title requires the same edit rights as the task itself.
      */
     public function update(Request $request, string $taskId, string $itemId)
@@ -61,13 +67,18 @@ class TaskChecklistController extends Controller
         $user = auth()->user();
 
         $isAssignee = $task->assignees->contains('id', $user->id);
+        $canEdit = TaskAccess::canEdit($user, $task);
 
-        if ($request->has('title') && !$this->canEditTask($task)) {
+        if ($request->has('title') && !$canEdit) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if ($request->has('is_done') && !$this->canEditTask($task) && !$isAssignee) {
+        if ($request->has('is_done') && !$canEdit && !$isAssignee) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'This group is closed.'], 423);
         }
 
         $request->validate([
@@ -87,33 +98,18 @@ class TaskChecklistController extends Controller
     {
         $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
         $item = TaskChecklistItem::where('task_id', $taskId)->findOrFail($itemId);
+        $user = auth()->user();
 
-        if (!$this->canEditTask($task)) {
+        if (!TaskAccess::canEdit($user, $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'This group is closed.'], 423);
         }
 
         $item->delete();
 
         return response()->json(['message' => 'Checklist item deleted.']);
-    }
-
-    private function canViewTask(Task $task): bool
-    {
-        $user = auth()->user();
-
-        return $user->isAdminOrAbove()
-            || $task->creator_id === $user->id
-            || $task->assignees->contains('id', $user->id)
-            || $task->mentions->contains('id', $user->id)
-            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id);
-    }
-
-    private function canEditTask(Task $task): bool
-    {
-        $user = auth()->user();
-
-        return $user->isAdminOrAbove()
-            || $task->creator_id === $user->id
-            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id);
     }
 }

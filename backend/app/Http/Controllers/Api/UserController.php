@@ -39,6 +39,24 @@ class UserController extends Controller
         return response()->json($query->paginate(15));
     }
 
+    /**
+     * GET /users/directory — minimal, company-wide, for the private-group
+     * member picker. Any authenticated user (name + department only, nothing
+     * else) — deliberately not department-scoped like index() above, since a
+     * group is meant to be able to cross departments.
+     */
+    public function directory(Request $request)
+    {
+        $users = User::where('is_active', true)
+            ->where('id', '!=', $request->user()->id)
+            ->with('department:id,name')
+            ->select('id', 'name', 'avatar', 'department_id')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($users);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

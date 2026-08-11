@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
 
         // Users — permission-gated per action
         Route::get('users',        [UserController::class, 'index'])->middleware('permission:users.view');
+        Route::get('users/directory', [UserController::class, 'directory']);
         Route::get('users/{id}',   [UserController::class, 'show'])->middleware('permission:users.view');
         Route::post('users',       [UserController::class, 'store'])->middleware('permission:users.create');
         Route::put('users/{id}',   [UserController::class, 'update'])->middleware('permission:users.edit');
@@ -68,15 +69,30 @@ Route::prefix('v1')->group(function () {
 
         // Tasks — permission-gated per action
         Route::get('tasks',        [TaskController::class, 'index'])->middleware('permission:tasks.view');
+        Route::post('tasks/groups',[TaskController::class, 'storeGroup']);
         Route::get('tasks/{id}',   [TaskController::class, 'show'])->middleware('permission:tasks.view');
         Route::post('tasks',       [TaskController::class, 'store'])->middleware('permission:tasks.create');
-        Route::put('tasks/{id}',   [TaskController::class, 'update'])->middleware('permission:tasks.edit');
-        Route::delete('tasks/{id}',[TaskController::class, 'destroy'])->middleware('permission:tasks.delete');
-        Route::put('tasks/{id}/status', [TaskController::class, 'updateStatus'])->middleware('permission:tasks.edit');
-        Route::post('tasks/{id}/assignees', [TaskController::class, 'addAssignee'])->middleware('permission:tasks.assign');
-        Route::delete('tasks/{id}/assignees/{userId}', [TaskController::class, 'removeAssignee'])->middleware('permission:tasks.assign');
-        Route::post('tasks/{id}/mentions', [TaskController::class, 'addMention'])->middleware('permission:tasks.edit');
-        Route::delete('tasks/{id}/mentions/{userId}', [TaskController::class, 'removeMention'])->middleware('permission:tasks.edit');
+        // These no longer carry a permission:tasks.* gate — TaskController already
+        // enforces the correct rule per action via TaskAccess (and canManageAssignee
+        // for normal tasks), which additionally has to allow a private group's
+        // creator (who may be a plain Employee with none of the tasks.* permissions)
+        // to manage their own group. For normal tasks this is not a loosening: an
+        // Employee can never be a normal task's creator (tasks.create is still
+        // gated), so every one of these checks still resolves to admin/manager-only.
+        Route::put('tasks/{id}',   [TaskController::class, 'update']);
+        Route::delete('tasks/{id}',[TaskController::class, 'destroy']);
+        Route::put('tasks/{id}/status', [TaskController::class, 'updateStatus']);
+        Route::post('tasks/{id}/assignees', [TaskController::class, 'addAssignee']);
+        Route::delete('tasks/{id}/assignees/{userId}', [TaskController::class, 'removeAssignee']);
+        Route::post('tasks/{id}/mentions', [TaskController::class, 'addMention']);
+        Route::delete('tasks/{id}/mentions/{userId}', [TaskController::class, 'removeMention']);
+        Route::post('tasks/{id}/close',  [TaskController::class, 'close'])->middleware('superadmin');
+        Route::post('tasks/{id}/reopen', [TaskController::class, 'reopen'])->middleware('superadmin');
+
+        // Tasks-inside-a-group — permission-free like tasks/groups, controller
+        // enforces membership via TaskAccess (any group member, per plan).
+        Route::get('tasks/{id}/subtasks',  [TaskController::class, 'subtasks']);
+        Route::post('tasks/{id}/subtasks', [TaskController::class, 'storeSubtask']);
 
         // Task Checklist / Subtasks
         Route::get('tasks/{taskId}/checklist',                [TaskChecklistController::class, 'index']);

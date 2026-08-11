@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\TaskNotification;
+use App\Support\TaskAccess;
 use Illuminate\Http\Request;
 
 class TaskCommentController extends Controller
@@ -18,11 +19,11 @@ class TaskCommentController extends Controller
     {
         $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
 
-        if (!$this->authorizeTaskAccess($task)) {
+        if (!TaskAccess::canView(auth()->user(), $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $comments = TaskComment::with(['user:id,name,avatar', 'replies.user:id,name,avatar'])
+        $comments = TaskComment::with(['user:id,name,avatar', 'mentionedUser:id,name', 'replies.user:id,name,avatar'])
             ->where('task_id', $taskId)
             ->whereNull('parent_id')   // top-level only
             ->latest()
@@ -37,28 +38,68 @@ class TaskCommentController extends Controller
      */
     public function store(Request $request, string $taskId)
     {
-        $task = Task::with(['creator', 'assignees', 'mentions', 'workflowSteps'])->findOrFail($taskId);
+        $task = Task::with(['creator', 'assignees', 'mentions', 'workflowSteps', 'parentGroup', 'parentGroup.assignees'])->findOrFail($taskId);
+        $user = auth()->user();
 
-        if (!$this->authorizeTaskAccess($task)) {
+        if (!TaskAccess::canView($user, $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'This group is closed.'], 423);
+        }
+
         $request->validate([
-            'content'     => 'required|string|max:2000',
-            'is_question' => 'sometimes|boolean',
-            'parent_id'   => 'nullable|exists:task_comments,id',
+            'content'            => 'required|string|max:2000',
+            'is_question'        => 'sometimes|boolean',
+            'parent_id'          => 'nullable|exists:task_comments,id',
+            'mentioned_user_id'  => 'nullable|exists:users,id',
         ]);
+
+        // A tag can only reach someone already on the task — its own creator or
+        // one of its assignees. This mirrors TaskAccess membership so a mention
+        // can never be used to notify (or reveal a private task to) an outsider.
+        // Inside a group's sub-task, the taggable pool widens to the *whole*
+        // group's membership, not just this sub-task's own (narrower) assignees
+        // — you can tag anyone in the group from any task inside it.
+        if ($request->mentioned_user_id) {
+            $taggable = $task->creator_id === (int) $request->mentioned_user_id
+                || $task->assignees->contains('id', $request->mentioned_user_id);
+
+            if (!$taggable && $task->parent_group_id && $task->parentGroup) {
+                $taggable = $task->parentGroup->creator_id === (int) $request->mentioned_user_id
+                    || $task->parentGroup->assignees->contains('id', $request->mentioned_user_id);
+            }
+
+            if (!$taggable) {
+                return response()->json(['message' => 'You can only tag someone on this task.'], 422);
+            }
+        }
 
         $comment = TaskComment::create([
-            'task_id'     => $taskId,
-            'user_id'     => auth()->id(),
-            'parent_id'   => $request->parent_id,
-            'content'     => $request->content,
-            'is_question' => $request->is_question ?? false,
-            'is_answered' => false,
+            'task_id'            => $taskId,
+            'user_id'            => auth()->id(),
+            'parent_id'          => $request->parent_id,
+            'content'            => $request->content,
+            'is_question'        => $request->is_question ?? false,
+            'is_answered'        => false,
+            'mentioned_user_id'  => $request->mentioned_user_id,
         ]);
 
-        $comment->load('user:id,name,avatar', 'replies.user:id,name,avatar');
+        $comment->load('user:id,name,avatar', 'mentionedUser:id,name', 'replies.user:id,name,avatar');
+
+        if ($request->mentioned_user_id && (int) $request->mentioned_user_id !== auth()->id()) {
+            TaskNotification::create([
+                'user_id' => $request->mentioned_user_id,
+                'type'    => 'comment_mention',
+                'data'    => [
+                    'task_id'    => $task->id,
+                    'task_title' => $task->title,
+                    'from'       => $user->name,
+                    'preview'    => mb_substr($request->content, 0, 80),
+                ],
+            ]);
+        }
 
         // Collect people to notify (everyone on the task except the commenter)
         $notifyIds = collect();
@@ -111,7 +152,7 @@ class TaskCommentController extends Controller
     {
         $task = Task::with(['assignees', 'mentions'])->findOrFail($taskId);
 
-        if (!$this->authorizeTaskAccess($task)) {
+        if (!TaskAccess::canView(auth()->user(), $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -128,35 +169,20 @@ class TaskCommentController extends Controller
 
     /**
      * DELETE /tasks/{taskId}/comments/{commentId}
-     * Only the author or admin can delete.
+     * Only the author, or someone with edit rights on the task, can delete.
      */
     public function destroy(string $taskId, string $commentId)
     {
+        $task    = Task::findOrFail($taskId);
         $comment = TaskComment::where('task_id', $taskId)->findOrFail($commentId);
         $user    = auth()->user();
 
-        if ($comment->user_id !== $user->id && !$user->isAdminOrAbove()) {
+        if ($comment->user_id !== $user->id && !TaskAccess::canEdit($user, $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $comment->delete();
 
         return response()->json(['message' => 'Deleted.']);
-    }
-
-    /**
-     * Only people involved in the task (plus Admin/Super Admin for oversight)
-     * can read or post in its chat: creator, assignees, mentioned managers,
-     * or the manager of the task's own department.
-     */
-    private function authorizeTaskAccess(Task $task): bool
-    {
-        $user = auth()->user();
-
-        return $user->isAdminOrAbove()
-            || $task->creator_id === $user->id
-            || $task->assignees->contains('id', $user->id)
-            || $task->mentions->contains('id', $user->id)
-            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id);
     }
 }

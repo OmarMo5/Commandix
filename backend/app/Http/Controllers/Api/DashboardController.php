@@ -17,7 +17,9 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        $taskQuery = Task::query();
+        // Private groups never appear on the dashboard — they live entirely on
+        // their own page, for everyone including Super Admin.
+        $taskQuery = Task::where('is_private', false);
 
         if ($user->isAdminOrAbove()) {
             // no filter — sees everything
@@ -56,7 +58,7 @@ class DashboardController extends Controller
             // Non-admins only get task activity within their own scope — never
             // account-level noise (other people's profile edits, role changes, etc.)
             $teamTaskIds = $user->isManager() && $user->department_id
-                ? Task::where('department_id', $user->department_id)->pluck('id')
+                ? Task::where('department_id', $user->department_id)->where('is_private', false)->pluck('id')
                 : (clone $taskQuery)->pluck('id');
 
             $activityQuery->where('model_type', 'Task')->whereIn('model_id', $teamTaskIds);
@@ -84,7 +86,8 @@ class DashboardController extends Controller
             $result['users_count'] = User::count();
             $result['departments_count'] = Department::count();
 
-            $result['tasks_per_department'] = Task::select('department_id', DB::raw('count(*) as count'))
+            $result['tasks_per_department'] = Task::where('is_private', false)
+                ->select('department_id', DB::raw('count(*) as count'))
                 ->with('department:id,name')
                 ->groupBy('department_id')
                 ->get()

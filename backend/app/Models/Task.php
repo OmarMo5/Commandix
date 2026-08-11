@@ -10,6 +10,7 @@ class Task extends Model
         'title', 'description', 'status', 'priority',
         'creator_id', 'department_id', 'due_date', 'workflow_enabled',
         'recurrence', 'recurrence_end_date', 'recurrence_parent_id', 'last_generated_at',
+        'is_private', 'closed_at', 'parent_group_id',
     ];
 
     protected function casts(): array
@@ -19,6 +20,8 @@ class Task extends Model
             'workflow_enabled'     => 'boolean',
             'recurrence_end_date'  => 'date',
             'last_generated_at'    => 'date',
+            'is_private'           => 'boolean',
+            'closed_at'            => 'datetime',
         ];
     }
 
@@ -55,6 +58,18 @@ class Task extends Model
     public function recurrenceParent()
     {
         return $this->belongsTo(Task::class, 'recurrence_parent_id');
+    }
+
+    /** The private group this task lives inside, if it's a sub-task. */
+    public function parentGroup()
+    {
+        return $this->belongsTo(Task::class, 'parent_group_id');
+    }
+
+    /** Sub-tasks created inside this group. */
+    public function childTasks()
+    {
+        return $this->hasMany(Task::class, 'parent_group_id');
     }
 
     public function comments()
