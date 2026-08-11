@@ -9,6 +9,7 @@ const typeIcons = {
   task_mentioned:    '💬',
   task_comment:      '💬',
   task_question:     '❓',
+  comment_mention:   '🏷️',
   workflow_turn:     '🔵',
   workflow_progress: '🔄',
   workflow_finished: '🎉',
@@ -121,6 +122,7 @@ function getNotifText(notif) {
     case 'task_mentioned':    return `${d.mentioned_by} mentioned you in "${d.task_title}"`;
     case 'task_comment':      return `${d.from} commented on "${d.task_title}": "${d.preview}"`;
     case 'task_question':     return `${d.from} asked a question on "${d.task_title}": "${d.preview}"`;
+    case 'comment_mention':   return `${d.from} tagged you in "${d.task_title}": "${d.preview}"`;
     case 'workflow_turn':     return `It's your turn! ${d.from} passed "${d.task_title}" to you — Step ${d.step}`;
     case 'workflow_progress': return `${d.completed_by} completed Step ${d.step} → now with ${d.next_assignee}`;
     case 'workflow_finished': return `🎉 ${d.completed_by} finished the last step — task is done!`;

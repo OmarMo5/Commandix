@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import GroupSubtaskModal from '../groups/GroupSubtaskModal';
 
 const priorityBadge = { low: 'badge-low', medium: 'badge-medium', high: 'badge-high' };
 const statusBadge   = { pending: 'badge-pending', in_progress: 'badge-in_progress', completed: 'badge-completed' };
@@ -25,7 +26,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [replyText, setReplyText]     = useState('');
   const [posting, setPosting]         = useState(false);
   const commentsEndRef = useRef(null);
-  const { user, isAdminOrAbove, isManager }  = useAuth();
+  const { user, isAdminOrAbove, isManager, isSuperAdmin }  = useAuth();
+  const [closing, setClosing] = useState(false);
   // Assignee management
   const [candidateUsers, setCandidateUsers] = useState([]);
   const [newAssigneeId, setNewAssigneeId]   = useState('');
@@ -39,6 +41,13 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [checklistBusy, setChecklistBusy]   = useState(false);
+  // Tasks-inside-a-group
+  const [subtasks, setSubtasks]             = useState([]);
+  const [subtasksLoading, setSubtasksLoading] = useState(false);
+  const [showSubtaskModal, setShowSubtaskModal] = useState(false);
+  const [openSubtaskId, setOpenSubtaskId]   = useState(null);
+  // In-group @mention on a comment
+  const [mentionUserId, setMentionUserId]   = useState('');
 
   const loadTask = () =>
     api.get(`/tasks/${taskId}`)
@@ -61,24 +70,53 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       .finally(() => setChecklistLoading(false));
   };
 
+  const loadSubtasks = () => {
+    setSubtasksLoading(true);
+    api.get(`/tasks/${taskId}/subtasks`)
+      .then(r => setSubtasks(r.data))
+      .catch(() => {})
+      .finally(() => setSubtasksLoading(false));
+  };
+
   useEffect(() => {
     loadTask();
     loadComments();
     loadChecklist();
+    loadSubtasks();
   }, [taskId]);
 
   // ── Assignee management ───────────────────────────────────────────────────
-  const canManageAssignees = task && (
-    isAdminOrAbove() ||
-    (isManager() && (
-      (task.department?.id && task.department.id === user?.department?.id) ||
-      task.mentions?.some(m => m.id === user?.id)
-    ))
+  // A private group's membership is locked down to its creator (+ Super Admin) —
+  // no department-manager fallback, since a group is meant to cross departments.
+  // A sub-task inside a group additionally lets the *group's* creator manage it.
+  const locked = !!task?.closed_at && !isSuperAdmin();
+  const canManageAssignees = task && !locked && (
+    task.parent_group_id
+      ? (isSuperAdmin() || task.creator_id === user?.id || task.parent_group?.creator_id === user?.id)
+      : task.is_private
+        ? (isSuperAdmin() || task.creator_id === user?.id)
+        : (
+            isAdminOrAbove() ||
+            (isManager() && (
+              (task.department?.id && task.department.id === user?.department?.id) ||
+              task.mentions?.some(m => m.id === user?.id)
+            ))
+          )
   );
 
   useEffect(() => {
     if (!canManageAssignees) return;
-    api.get('/users', { params: { per_page: 200 } }).then(r => setCandidateUsers(r.data.data || []));
+    if (task?.parent_group_id) {
+      // Candidates for a sub-task are strictly the parent group's own members —
+      // never the company directory, a sub-task can't reach outside the group.
+      setCandidateUsers(task.parent_group?.assignees || []);
+    } else if (task?.is_private) {
+      // The permission-gated /users list may not be reachable by a non-admin
+      // group creator — the directory endpoint is open to any authenticated user.
+      api.get('/users/directory').then(r => setCandidateUsers(r.data || []));
+    } else {
+      api.get('/users', { params: { per_page: 200 } }).then(r => setCandidateUsers(r.data.data || []));
+    }
     // eslint-disable-next-line
   }, [canManageAssignees]);
 
@@ -107,15 +145,29 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   };
 
   // ── Mention management ────────────────────────────────────────────────────
-  const canManageMentions = task && (
-    isAdminOrAbove() ||
-    task.creator_id === user?.id ||
-    (isManager() && task.department?.id && task.department.id === user?.department?.id)
+  // On a sub-task inside a group, mentioning is allowed (tagging a fellow group
+  // member) and gated the same way editing is — its own creator, the group's
+  // creator, or Super Admin.
+  const canManageMentions = task && !locked && (
+    task.parent_group_id
+      ? (isSuperAdmin() || task.creator_id === user?.id || task.parent_group?.creator_id === user?.id)
+      : (
+          isAdminOrAbove() ||
+          task.creator_id === user?.id ||
+          (isManager() && task.department?.id && task.department.id === user?.department?.id)
+        )
   );
 
   useEffect(() => {
     if (!canManageMentions) return;
-    api.get('/departments/managers-list').then(r => setCandidateManagers(r.data || []));
+    if (task?.parent_group_id) {
+      // Candidates are the whole group's membership — same pool used for @tags.
+      const pool = [task.parent_group?.creator, ...(task.parent_group?.assignees || [])]
+        .filter((u, idx, arr) => u && arr.findIndex(x => x?.id === u.id) === idx);
+      setCandidateManagers(pool);
+    } else {
+      api.get('/departments/managers-list').then(r => setCandidateManagers(r.data || []));
+    }
     // eslint-disable-next-line
   }, [canManageMentions]);
 
@@ -144,12 +196,18 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   };
 
   // ── Checklist ──────────────────────────────────────────────────────────────
-  const canEditChecklist = task && (
-    isAdminOrAbove() ||
-    task.creator_id === user?.id ||
-    (isManager() && task.department?.id && task.department.id === user?.department?.id)
+  const canEditChecklist = task && !locked && (
+    task.parent_group_id
+      ? (isSuperAdmin() || task.creator_id === user?.id || task.parent_group?.creator_id === user?.id)
+      : task.is_private
+        ? (isSuperAdmin() || task.creator_id === user?.id)
+        : (
+            isAdminOrAbove() ||
+            task.creator_id === user?.id ||
+            (isManager() && task.department?.id && task.department.id === user?.department?.id)
+          )
   );
-  const canToggleChecklist = canEditChecklist || (task?.assignees?.some(a => a.id === user?.id));
+  const canToggleChecklist = !locked && (canEditChecklist || (task?.assignees?.some(a => a.id === user?.id)));
 
   const addChecklistItem = async () => {
     if (!newChecklistTitle.trim()) return;
@@ -195,6 +253,30 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       onStatusChanged?.();
     } catch { toast.error('Failed to update status'); }
     finally { setUpdatingStatus(false); }
+  };
+
+  // ── Close / reopen (private groups, Super Admin only) ────────────────────
+  const closeGroup = async () => {
+    if (!confirm('Close this group? Members will no longer be able to post, edit, or add anyone until it is reopened.')) return;
+    setClosing(true);
+    try {
+      const { data } = await api.post(`/tasks/${taskId}/close`);
+      setTask(t => ({ ...t, closed_at: data.closed_at }));
+      toast.success('Group closed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to close group');
+    } finally { setClosing(false); }
+  };
+
+  const reopenGroup = async () => {
+    setClosing(true);
+    try {
+      await api.post(`/tasks/${taskId}/reopen`);
+      setTask(t => ({ ...t, closed_at: null }));
+      toast.success('Group reopened');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reopen group');
+    } finally { setClosing(false); }
   };
 
   // ── Workflow step ─────────────────────────────────────────────────────────
@@ -245,12 +327,14 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       const { data } = await api.post(`/tasks/${taskId}/comments`, {
         content: newComment.trim(),
         is_question: isQuestion,
+        mentioned_user_id: mentionUserId || undefined,
       });
       setComments(prev => [data, ...prev]);
       setNewComment('');
       setIsQuestion(false);
+      setMentionUserId('');
       toast.success(isQuestion ? 'Question posted' : 'Comment added');
-    } catch { toast.error('Failed to post'); }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to post'); }
     finally { setPosting(false); }
   };
 
@@ -290,11 +374,22 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const myActiveStep  = task?.workflowSteps?.find(s => s.user_id === user?.id && s.status === 'active');
-  const canChangeStatus = !task?.workflow_enabled &&
+  const canChangeStatus = !task?.workflow_enabled && !locked &&
     (isAdminOrAbove() || isManager() || task?.assignees?.some(a => a.id === user?.id) || task?.creator_id === user?.id);
   const nextStatuses  = task ? ['pending', 'in_progress', 'completed'].filter(s => s !== task.status) : [];
   const fileIcon      = (t) => t?.includes('image') ? '🖼️' : t?.includes('pdf') ? '📄' : '📎';
   const unansweredQ   = comments.filter(c => c.is_question && !c.is_answered).length;
+  // Who can be @tagged in a comment. Inside a group's sub-task this widens to
+  // the *whole* group's membership (not just this sub-task's own narrower
+  // assignees) — any task inside the group can tag any member of the group.
+  const taggableUsers = task
+    ? (
+        task.parent_group_id && task.parent_group
+          ? [task.parent_group.creator, ...(task.parent_group.assignees || [])]
+          : [task.creator, ...(task.assignees || [])]
+      ).filter((u, idx, arr) => u && u.id !== user?.id && arr.findIndex(x => x?.id === u.id) === idx)
+    : [];
+  const showTasksTab = task?.is_private && !task?.parent_group_id;
 
   const tabStyle = (t) => ({
     padding: '8px 16px', fontSize: 13, fontWeight: 600, border: 'none',
@@ -304,6 +399,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   });
 
   return (
+    <>
     <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.55)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-dialog modal-lg modal-dialog-scrollable">
@@ -324,6 +420,16 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                       <span className={`badge ${statusBadge[task.status]}`} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12 }}>
                         {statusLabel[task.status]}
                       </span>
+                      {task.is_private && (
+                        <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                          🔒 Private Group
+                        </span>
+                      )}
+                      {task.closed_at && (
+                        <span style={{ fontSize: 12, background: '#ef444420', color: '#ef4444', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                          🚫 Closed
+                        </span>
+                      )}
                       {task.workflow_enabled && (
                         <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           🔄 Workflow
@@ -345,6 +451,11 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                         </span>
                       )}
                     </div>
+                    {task.parent_group_id && task.parent_group && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                        ↳ Part of <strong>{task.parent_group.title}</strong>
+                      </div>
+                    )}
                     <h5 style={{ fontWeight: 700, margin: 0 }}>{task.title}</h5>
                   </div>
                   <button className="btn-close" onClick={onClose} />
@@ -361,6 +472,16 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                       </span>
                     )}
                   </button>
+                  {showTasksTab && (
+                    <button style={tabStyle('tasks')} onClick={() => setTab('tasks')}>
+                      📋 Tasks
+                      {subtasks.length > 0 && (
+                        <span style={{ marginLeft: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                          {subtasks.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {task.workflow_enabled && (
                     <button style={tabStyle('workflow')} onClick={() => setTab('workflow')}>
                       🔄 Workflow
@@ -375,6 +496,12 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
               </div>
 
               <div className="modal-body">
+
+                {task.closed_at && (
+                  <div style={{ marginBottom: 16, padding: '10px 14px', background: '#ef444415', border: '1px solid #ef444440', borderRadius: 8, fontSize: 13, color: '#ef4444', fontWeight: 500 }}>
+                    🚫 This group is closed{isSuperAdmin() ? ' — as Super Admin you can still act on it, but others cannot.' : '. No one can post, edit, or add members until it is reopened.'}
+                  </div>
+                )}
 
                 {/* ── DETAILS TAB ── */}
                 {tab === 'details' && (
@@ -445,9 +572,12 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           </div>
                         )}
 
-                        {(task.mentions?.length > 0 || canManageMentions) && (
+                        {/* Hidden for the group itself (its assignees already are its members) — shown for a sub-task inside one, or a normal task. */}
+                        {(!task.is_private || task.parent_group_id) && (task.mentions?.length > 0 || canManageMentions) && (
                           <div className="mt-3">
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Mentioned managers:</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                              {task.parent_group_id ? 'Mentioned:' : 'Mentioned managers:'}
+                            </div>
                             {task.mentions?.length > 0 ? (
                               <div className="d-flex flex-wrap gap-1 mb-2">
                                 {task.mentions.map(u => (
@@ -476,7 +606,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   onChange={e => setNewMentionId(e.target.value)}
                                   style={{ fontSize: 12 }}
                                 >
-                                  <option value="">+ Mention a manager...</option>
+                                  <option value="">{task.parent_group_id ? '+ Mention a group member...' : '+ Mention a manager...'}</option>
                                   {candidateManagers
                                     .filter(u => !task.mentions?.some(m => m.id === u.id))
                                     .map(u => (
@@ -610,16 +740,18 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           ))}
                         </div>
                       )}
-                      <label style={{ cursor: 'pointer' }}>
-                        <input type="file" style={{ display: 'none' }} onChange={uploadFile} disabled={uploading}
-                          accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13,
-                          color: uploading ? 'var(--text-secondary)' : 'var(--accent)',
-                          border: '1px dashed var(--border-color)', borderRadius: 8, padding: '8px 14px',
-                          cursor: uploading ? 'not-allowed' : 'pointer' }}>
-                          📎 {uploading ? 'Uploading...' : 'Add Attachment'}
-                        </span>
-                      </label>
+                      {!locked && (
+                        <label style={{ cursor: 'pointer' }}>
+                          <input type="file" style={{ display: 'none' }} onChange={uploadFile} disabled={uploading}
+                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13,
+                            color: uploading ? 'var(--text-secondary)' : 'var(--accent)',
+                            border: '1px dashed var(--border-color)', borderRadius: 8, padding: '8px 14px',
+                            cursor: uploading ? 'not-allowed' : 'pointer' }}>
+                            📎 {uploading ? 'Uploading...' : 'Add Attachment'}
+                          </span>
+                        </label>
+                      )}
                     </div>
                   </>
                 )}
@@ -655,7 +787,18 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                         onChange={e => setNewComment(e.target.value)}
                         style={{ marginBottom: 10 }}
                       />
-                      <button className="btn-accent" onClick={postComment} disabled={posting || !newComment.trim()} style={{ fontSize: 13 }}>
+                      {taggableUsers.length > 0 && (
+                        <select
+                          className="form-select form-select-sm"
+                          value={mentionUserId}
+                          onChange={e => setMentionUserId(e.target.value)}
+                          style={{ fontSize: 12, marginBottom: 10, maxWidth: 240 }}
+                        >
+                          <option value="">🏷️ Tag someone (optional)</option>
+                          {taggableUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      )}
+                      <button className="btn-accent" onClick={postComment} disabled={posting || !newComment.trim() || locked} style={{ fontSize: 13 }}>
                         {posting ? 'Posting...' : isQuestion ? '❓ Post Question' : '💬 Post Comment'}
                       </button>
                     </div>
@@ -696,6 +839,46 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                   </div>
                 )}
 
+                {/* ── TASKS TAB (inside a group) ── */}
+                {tab === 'tasks' && showTasksTab && (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Every group member can see these tasks; only its own creator (or the group's creator) can edit one.
+                      </div>
+                      {!locked && (
+                        <button className="btn btn-sm btn-accent" onClick={() => setShowSubtaskModal(true)} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                          + New Task
+                        </button>
+                      )}
+                    </div>
+
+                    {subtasksLoading ? (
+                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+                    ) : subtasks.length === 0 ? (
+                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
+                        <p style={{ fontSize: 13 }}>No tasks yet. Create one for a specific member (or a few) to work on.</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {subtasks.map(st => (
+                          <div key={st.id} onClick={() => setOpenSubtaskId(st.id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, cursor: 'pointer' }}>
+                            <span className={`badge ${statusBadge[st.status]}`} style={{ padding: '3px 8px', borderRadius: 20, fontSize: 10, flexShrink: 0 }}>
+                              {statusLabel[st.status]}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{st.title}</span>
+                            <div className="d-flex gap-1">
+                              {st.assignees?.slice(0, 3).map(u => <UserAvatar key={u.id} user={u} size={22} />)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ── WORKFLOW TAB ── */}
                 {tab === 'workflow' && task.workflowSteps && (
                   <WorkflowPanel
@@ -713,6 +896,17 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
               </div>
 
               <div className="modal-footer">
+                {showTasksTab && isSuperAdmin() && (
+                  task.closed_at ? (
+                    <button className="btn btn-outline-success" onClick={reopenGroup} disabled={closing} style={{ fontSize: 13 }}>
+                      {closing ? '...' : '▶ Reopen Group'}
+                    </button>
+                  ) : (
+                    <button className="btn btn-outline-danger" onClick={closeGroup} disabled={closing} style={{ fontSize: 13 }}>
+                      {closing ? '...' : '🚫 Close Group'}
+                    </button>
+                  )
+                )}
                 <button className="btn btn-secondary" onClick={onClose}>Close</button>
               </div>
             </>
@@ -720,6 +914,30 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
         </div>
       </div>
     </div>
+
+    {showSubtaskModal && (
+      <GroupSubtaskModal
+        groupId={taskId}
+        groupMembers={task?.assignees || []}
+        mentionCandidates={
+          task
+            ? [task.creator, ...(task.assignees || [])]
+                .filter((u, idx, arr) => u && arr.findIndex(x => x?.id === u.id) === idx)
+            : []
+        }
+        onClose={() => setShowSubtaskModal(false)}
+        onSaved={loadSubtasks}
+      />
+    )}
+
+    {openSubtaskId && (
+      <TaskDetailModal
+        taskId={openSubtaskId}
+        onClose={() => setOpenSubtaskId(null)}
+        onStatusChanged={loadSubtasks}
+      />
+    )}
+    </>
   );
 }
 
@@ -747,6 +965,11 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, replyTo
               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                 {new Date(comment.created_at).toLocaleString()}
               </span>
+              {comment.mentioned_user && (
+                <span style={{ fontSize: 11, background: '#6366f120', color: '#6366f1', padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>
+                  🏷️ @{comment.mentioned_user.name}
+                </span>
+              )}
             </div>
             <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{comment.content}</p>
           </div>

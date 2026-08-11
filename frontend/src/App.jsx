@@ -19,6 +19,7 @@ import ActivityPage from './pages/activity/ActivityPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import BrandingPage from './pages/settings/BrandingPage';
 import ReportsPage from './pages/reports/ReportsPage';
+import GroupsPage from './pages/groups/GroupsPage';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
                   <Route path="/home" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/tasks" element={<TasksPage />} />
+                  <Route path="/groups" element={<GroupsPage />} />
                   <Route path="/departments" element={<DepartmentsPage />} />
                   <Route path="/users" element={<UsersPage />} />
                   <Route element={<SuperAdminRoute />}>
