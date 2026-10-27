@@ -6,25 +6,28 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
+import { useLive } from '../../context/LiveContext';
+import { t } from '../../i18n';
 
 const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', section: 'Main', managerOnly: true },
-  { path: '/tasks', icon: CheckSquare, label: 'My Tasks', section: 'Main' },
-  { path: '/groups', icon: Lock, label: 'Private Groups', section: 'Main' },
-  { path: '/notifications', icon: Bell, label: 'Notifications', section: 'Main' },
-  { path: '/departments', icon: Building2, label: 'Departments', section: 'Management' },
-  { path: '/users', icon: Users, label: 'Users', section: 'Management', adminOnly: true },
-  { path: '/roles', icon: ShieldCheck, label: 'Roles & Permissions', section: 'Management', superAdminOnly: true },
-  { path: '/files', icon: FolderOpen, label: 'Files', section: 'System' },
-  { path: '/reports', icon: BarChart3, label: 'Reports', section: 'System', adminOnly: true },
-  { path: '/activity', icon: Activity, label: 'Activity Log', section: 'System', adminOnly: true },
-  { path: '/settings/branding', icon: Palette, label: 'Branding', section: 'System', superAdminOnly: true },
-  { path: '/profile', icon: User, label: 'Profile', section: 'Account' },
+  { path: '/dashboard', icon: LayoutDashboard, label: t('Dashboard'), section: 'Main', managerOnly: true },
+  { path: '/tasks', icon: CheckSquare, label: t('My Tasks'), section: 'Main' },
+  { path: '/groups', icon: Lock, label: t('Private Groups'), section: 'Main' },
+  { path: '/notifications', icon: Bell, label: t('Notifications'), section: 'Main' },
+  { path: '/departments', icon: Building2, label: t('Departments'), section: 'Management' },
+  { path: '/users', icon: Users, label: t('Users'), section: 'Management', adminOnly: true },
+  { path: '/roles', icon: ShieldCheck, label: t('Roles & Permissions'), section: 'Management', superAdminOnly: true },
+  { path: '/files', icon: FolderOpen, label: t('Files'), section: 'System' },
+  { path: '/reports', icon: BarChart3, label: t('Reports'), section: 'System', adminOnly: true },
+  { path: '/activity', icon: Activity, label: t('Activity Log'), section: 'System', adminOnly: true },
+  { path: '/settings/branding', icon: Palette, label: t('Branding'), section: 'System', superAdminOnly: true },
+  { path: '/profile', icon: User, label: t('Profile'), section: 'Account' },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { isAdminOrAbove, isSuperAdmin, isManager } = useAuth();
   const { appName, logoUrl } = useSettings();
+  const { groupsUnreadTotal } = useLive();
   const sections = [...new Set(navItems.map(i => i.section))];
 
   const isVisible = (item) => {
@@ -53,7 +56,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           if (!items.length) return null;
           return (
             <div key={section}>
-              {!collapsed && <div className="nav-section">{section}</div>}
+              {!collapsed && <div className="nav-section">{t(section)}</div>}
               {items.map(item => {
                 const Icon = item.icon;
                 return (
@@ -67,6 +70,11 @@ export default function Sidebar({ collapsed, onToggle }) {
                       <Icon size={18} strokeWidth={1.8} />
                     </span>
                     {!collapsed && <span>{item.label}</span>}
+                    {item.path === '/groups' && groupsUnreadTotal > 0 && (
+                      <span className="nav-badge" title={t('{n} unread group message(s)', { n: groupsUnreadTotal })}>
+                        {collapsed ? '' : groupsUnreadTotal > 99 ? '99+' : groupsUnreadTotal}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}
@@ -79,9 +87,9 @@ export default function Sidebar({ collapsed, onToggle }) {
       <div className="sidebar-footer">
         <button className="sidebar-collapse-btn" onClick={onToggle}>
           <span className="nav-icon-wrap">
-            {collapsed ? <ChevronRight size={18} strokeWidth={1.8} /> : <ChevronLeft size={18} strokeWidth={1.8} />}
+            {collapsed ? <ChevronRight size={18} strokeWidth={1.8} className="flip-rtl" /> : <ChevronLeft size={18} strokeWidth={1.8} className="flip-rtl" />}
           </span>
-          {!collapsed && <span>Collapse</span>}
+          {!collapsed && <span>{t('Collapse')}</span>}
         </button>
       </div>
     </aside>

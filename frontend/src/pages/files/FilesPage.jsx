@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { openAttachment } from '../../utils/downloadAttachment';
+import { t, formatDate, formatDateTime } from '../../i18n';
 
 const typeIcon = (type) => {
   if (type?.includes('image')) return '🖼️';
@@ -25,19 +27,19 @@ export default function FilesPage() {
       const { data } = await api.get('/files', { params: { search, page } });
       setFiles(data.data);
       setMeta(data);
-    } catch { toast.error('Failed to load files'); }
+    } catch { toast.error(t('Failed to load files')); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetch(); }, [search, page]);
 
   const deleteFile = async (id) => {
-    if (!confirm('Delete this file?')) return;
+    if (!confirm(t('Delete this file?'))) return;
     try {
       await api.delete(`/files/${id}`);
-      toast.success('File deleted');
+      toast.success(t('File deleted'));
       fetch();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('Failed to delete')); }
   };
 
   const formatSize = (bytes) => {
@@ -50,8 +52,8 @@ export default function FilesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">File Manager</h1>
-          <p className="page-subtitle">{meta?.total || 0} files</p>
+          <h1 className="page-title">{t('File Manager')}</h1>
+          <p className="page-subtitle">{meta?.total || 0} {t('files')}</p>
         </div>
       </div>
 
@@ -59,7 +61,7 @@ export default function FilesPage() {
         <input
           className="form-control"
           style={{ maxWidth: 320 }}
-          placeholder="Search files..."
+          placeholder={t("Search files...")}
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
         />
@@ -69,20 +71,20 @@ export default function FilesPage() {
         <table className="table mb-0">
           <thead>
             <tr>
-              <th>File</th>
-              <th>Task</th>
-              <th>Uploaded By</th>
-              <th>Size</th>
-              <th>Date</th>
-              {isAdminOrAbove() && <th>Actions</th>}
+              <th>{t('File')}</th>
+              <th>{t('Task')}</th>
+              <th>{t('Uploaded By')}</th>
+              <th>{t('Size')}</th>
+              <th>{t('Date')}</th>
+              {isAdminOrAbove() && <th>{t('Actions')}</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={6} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>Loading...</td></tr>
+              <tr><td colSpan={6} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</td></tr>
             )}
             {!loading && files.length === 0 && (
-              <tr><td colSpan={6} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>No files found</td></tr>
+              <tr><td colSpan={6} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('No files found')}</td></tr>
             )}
             {files.map(file => (
               <tr key={file.id}>
@@ -90,9 +92,9 @@ export default function FilesPage() {
                   <div className="d-flex align-items-center gap-2">
                     <span style={{ fontSize: 22 }}>{typeIcon(file.file_type)}</span>
                     <div>
-                      <a href={file.url} target="_blank" rel="noreferrer" style={{ fontWeight: 500, color: 'var(--accent)', fontSize: 13 }}>
+                      <button type="button" onClick={() => openAttachment(file)} style={{ fontWeight: 500, color: 'var(--accent)', fontSize: 13, background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
                         {file.file_name}
-                      </a>
+                      </button>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{file.file_type}</div>
                     </div>
                   </div>
@@ -101,7 +103,7 @@ export default function FilesPage() {
                 <td style={{ fontSize: 13 }}>{file.user?.name || '—'}</td>
                 <td style={{ fontSize: 13 }}>{formatSize(file.file_size)}</td>
                 <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {new Date(file.created_at).toLocaleDateString()}
+                  {formatDate(file.created_at)}
                 </td>
                 {isAdminOrAbove() && (
                   <td>

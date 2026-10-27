@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
+import { t } from '../../i18n';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState([]);
@@ -16,7 +17,7 @@ export default function RolesPage() {
       const [r, p] = await Promise.all([api.get('/roles'), api.get('/permissions')]);
       setRoles(r.data);
       setAllPermissions(p.data);
-    } catch { toast.error('Failed to load'); }
+    } catch { toast.error(t('Failed to load')); }
     finally { setLoading(false); }
   };
 
@@ -56,25 +57,25 @@ export default function RolesPage() {
     try {
       if (edit) {
         await api.put(`/roles/${edit.id}`, form);
-        toast.success('Role updated');
+        toast.success(t('Role updated'));
       } else {
         await api.post('/roles', form);
-        toast.success('Role created');
+        toast.success(t('Role created'));
       }
       setShowModal(false);
       fetch();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(err.response?.data?.message || t('Failed to save'));
     } finally { setSaving(false); }
   };
 
   const deleteRole = async (id) => {
-    if (!confirm('Delete this role?')) return;
+    if (!confirm(t('Delete this role?'))) return;
     try {
       await api.delete(`/roles/${id}`);
-      toast.success('Role deleted');
+      toast.success(t('Role deleted'));
       fetch();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('Failed to delete')); }
   };
 
   const groups = [...new Set(allPermissions.map(p => p.group))];
@@ -83,14 +84,14 @@ export default function RolesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Roles & Permissions</h1>
-          <p className="page-subtitle">Super Admin only — controls what Admins, Managers, and Employees can access ({roles.length} roles)</p>
+          <h1 className="page-title">{t('Roles & Permissions')}</h1>
+          <p className="page-subtitle">{t('Super Admin only — controls what Admins, Managers, and Employees can access (')}{roles.length} {t('roles)')}</p>
         </div>
-        <button className="btn-accent" onClick={() => openModal()}>+ Add Role</button>
+        <button className="btn-accent" onClick={() => openModal()}>{t('+ Add Role')}</button>
       </div>
 
       {loading ? (
-        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</div>
       ) : (
         <div className="row g-3">
           {roles.map(role => (
@@ -98,24 +99,24 @@ export default function RolesPage() {
               <div className="card">
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div>
-                    <h6 style={{ fontWeight: 700 }}>{role.display_name}</h6>
+                    <h6 style={{ fontWeight: 700 }}>{t(role.display_name)}</h6>
                     <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{role.name}</span>
                   </div>
                   <div className="dropdown">
                     <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }} data-bs-toggle="dropdown">⋮</button>
                     <ul className="dropdown-menu dropdown-menu-end">
-                      <li><button className="dropdown-item" onClick={() => openModal(role)}>✏️ Edit</button></li>
-                      <li><button className="dropdown-item text-danger" onClick={() => deleteRole(role.id)}>🗑️ Delete</button></li>
+                      <li><button className="dropdown-item" onClick={() => openModal(role)}>{t('✏️ Edit')}</button></li>
+                      <li><button className="dropdown-item text-danger" onClick={() => deleteRole(role.id)}>{t('🗑️ Delete')}</button></li>
                     </ul>
                   </div>
                 </div>
                 {role.description && (
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>{role.description}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>{t(role.description)}</p>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {role.permissions?.map(p => (
                     <span key={p.id} style={{ fontSize: 11, background: 'var(--accent)15', color: 'var(--accent)', padding: '2px 8px', borderRadius: 20 }}>
-                      {p.display_name}
+                      {t(p.display_name)}
                     </span>
                   ))}
                 </div>
@@ -130,27 +131,27 @@ export default function RolesPage() {
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">{edit ? 'Edit Role' : 'New Role'}</h5>
+                <h5 className="modal-title">{edit ? t('Edit Role') : t('New Role')}</h5>
                 <button className="btn-close" onClick={() => setShowModal(false)} />
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body">
                   <div className="row g-3 mb-3">
                     <div className="col-md-6">
-                      <label className="form-label">Role Name (slug) *</label>
-                      <input className="form-control" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. team_lead" required />
+                      <label className="form-label">{t('Role Name (slug) *')}</label>
+                      <input className="form-control" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={t("e.g. team_lead")} required />
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label">Display Name *</label>
-                      <input className="form-control" value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} placeholder="e.g. Team Lead" required />
+                      <label className="form-label">{t('Display Name *')}</label>
+                      <input className="form-control" value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} placeholder={t("e.g. Team Lead")} required />
                     </div>
                     <div className="col-12">
-                      <label className="form-label">Description</label>
+                      <label className="form-label">{t('Description')}</label>
                       <input className="form-control" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                     </div>
                   </div>
 
-                  <h6 style={{ fontWeight: 600, marginBottom: 12 }}>Permissions</h6>
+                  <h6 style={{ fontWeight: 600, marginBottom: 12 }}>{t('Permissions')}</h6>
                   {groups.map(group => {
                     const perms = allPermissions.filter(p => p.group === group);
                     const allSelected = perms.every(p => form.permissions.includes(p.id));
@@ -164,9 +165,9 @@ export default function RolesPage() {
                             className="form-check-input"
                             id={`group-${group}`}
                           />
-                          <label htmlFor={`group-${group}`} style={{ fontWeight: 600, fontSize: 13 }}>{group}</label>
+                          <label htmlFor={`group-${group}`} style={{ fontWeight: 600, fontSize: 13 }}>{t(group)}</label>
                         </div>
-                        <div style={{ paddingLeft: 24, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ paddingInlineStart: 24, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                           {perms.map(p => (
                             <div key={p.id} className="form-check form-check-inline">
                               <input
@@ -177,7 +178,7 @@ export default function RolesPage() {
                                 onChange={() => togglePerm(p.id)}
                               />
                               <label className="form-check-label" htmlFor={`perm-${p.id}`} style={{ fontSize: 13 }}>
-                                {p.display_name}
+                                {t(p.display_name)}
                               </label>
                             </div>
                           ))}
@@ -187,8 +188,8 @@ export default function RolesPage() {
                   })}
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-accent" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{t('Cancel')}</button>
+                  <button type="submit" className="btn-accent" disabled={saving}>{saving ? t('Saving...') : t('Save')}</button>
                 </div>
               </form>
             </div>

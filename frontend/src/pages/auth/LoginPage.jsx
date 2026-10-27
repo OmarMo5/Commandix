@@ -4,11 +4,12 @@ import { toast } from 'react-toastify';
 import { Mail, Lock, Zap, LogIn, ShieldCheck, Users2, ListChecks, Eye, EyeOff, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
+import { t, isRTL, toggleLang } from '../../i18n';
 
 const FEATURES = [
-  { icon: ShieldCheck, text: 'Role-based access control for every team' },
-  { icon: Users2, text: 'Cross-department collaboration on shared tasks' },
-  { icon: ListChecks, text: 'Real-time task tracking from assignment to done' },
+  { icon: ShieldCheck, text: t('Role-based access control for every team') },
+  { icon: Users2, text: t('Cross-department collaboration on shared tasks') },
+  { icon: ListChecks, text: t('Real-time task tracking from assignment to done') },
 ];
 
 const MOCK_TASKS = [
@@ -49,7 +50,7 @@ export default function LoginPage() {
       await login(form.email, form.password);
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid credentials');
+      toast.error(err.response?.data?.message || t('Invalid credentials'));
     } finally {
       setLoading(false);
     }
@@ -67,13 +68,13 @@ export default function LoginPage() {
               <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.01em' }}>{appName}</span>
             </div>
 
-            <span className="auth-eyebrow auth-fade-in" style={{ animationDelay: '0.05s' }}>Team Workspace</span>
+            <span className="auth-eyebrow auth-fade-in" style={{ animationDelay: '0.05s' }}>{t('Team Workspace')}</span>
 
             <h1 className="auth-fade-in" style={{ fontSize: 33, fontWeight: 800, lineHeight: 1.18, letterSpacing: '-0.02em', marginBottom: 14, animationDelay: '0.08s' }}>
-              Work flows better<br />when access is clear.
+              {t('Work flows better')}<br />{t('when access is clear.')}
             </h1>
             <p className="auth-fade-in" style={{ fontSize: 14.5, color: '#8b9db5', marginBottom: 28, lineHeight: 1.6, maxWidth: 380, animationDelay: '0.12s' }}>
-              Super Admin, Admin, Manager, Employee — everyone gets exactly the access they need, nothing they don't.
+              {t("Super Admin, Admin, Manager, Employee — everyone gets exactly the access they need, nothing they don't.")}
             </p>
 
             <div className="auth-fade-in" style={{ animationDelay: '0.16s' }}>
@@ -96,10 +97,10 @@ export default function LoginPage() {
             <div className="auth-mock-card auth-fade-in" style={{ animationDelay: '0.2s' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#6b7fa3' }}>
-                  Today's Tasks
+                  {t("Today's Tasks")}
                 </span>
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#a5b4fc', background: 'rgba(99,102,241,0.12)', padding: '2px 8px', borderRadius: 20 }}>
-                  Live
+                  {t('Live')}
                 </span>
               </div>
               {MOCK_TASKS.map((t, i) => (
@@ -111,7 +112,7 @@ export default function LoginPage() {
             </div>
 
             <div className="auth-fade-in" style={{ marginTop: 22, fontSize: 12, color: '#3d4761', animationDelay: '0.24s' }}>
-              © {year} {appName}. All rights reserved.
+              © {year} {appName}{t('. All rights reserved.')}
             </div>
           </div>
         </div>
@@ -119,6 +120,10 @@ export default function LoginPage() {
         {/* Form panel */}
         <div className="auth-form-panel">
           <div className="auth-card auth-fade-in">
+
+            <button type="button" className="auth-lang-btn" onClick={toggleLang}>
+              {isRTL ? 'English' : 'العربية'}
+            </button>
 
             {/* Brand — shown only on narrow screens where the left panel is hidden */}
             <div className="auth-form-brand" style={{ textAlign: 'center', marginBottom: 26 }}>
@@ -130,18 +135,18 @@ export default function LoginPage() {
 
             <div style={{ marginBottom: 28 }}>
               <h2 style={{ fontWeight: 800, fontSize: 22, color: '#f0f6ff', letterSpacing: '-0.02em', marginBottom: 6 }}>
-                Welcome back
+                {t('Welcome back')}
               </h2>
-              <p style={{ color: '#5c6885', fontSize: 13.5 }}>Sign in to your {appName} workspace</p>
+              <p style={{ color: '#5c6885', fontSize: 13.5 }}>{t('Sign in to your')} {appName} {t('workspace')}</p>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="form-label" style={{ color: '#8b9db5' }}>Email Address</label>
+                <label className="form-label" style={{ color: '#8b9db5' }}>{t('Email Address')}</label>
                 <div className="auth-input-wrap">
                   <Mail size={15} style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)',
                     color: '#465066', pointerEvents: 'none',
                   }} />
                   <input
@@ -156,16 +161,16 @@ export default function LoginPage() {
                 </div>
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label className="form-label" style={{ color: '#8b9db5' }}>Password</label>
+                <label className="form-label" style={{ color: '#8b9db5' }}>{t('Password')}</label>
                 <div className="auth-input-wrap">
                   <Lock size={15} style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    position: 'absolute', insetInlineStart: 14, top: '50%', transform: 'translateY(-50%)',
                     color: '#465066', pointerEvents: 'none',
                   }} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     className="auth-input"
-                    style={{ paddingRight: 40 }}
+                    style={{ paddingInlineEnd: 40 }}
                     placeholder="••••••••"
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
@@ -175,9 +180,9 @@ export default function LoginPage() {
                     type="button"
                     className="auth-pwd-toggle"
                     onClick={() => setShowPassword(v => !v)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}
+                    style={{ position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)' }}
                     tabIndex={-1}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('Hide password') : t('Show password')}
                   >
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -186,12 +191,12 @@ export default function LoginPage() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 24, fontSize: 12, color: '#465066' }}>
                 <LifeBuoy size={12} />
-                <span>Forgot your password? Contact your administrator.</span>
+                <span>{t('Forgot your password? Contact your administrator.')}</span>
               </div>
 
               <button type="submit" className="auth-submit-btn" disabled={loading}>
                 {loading ? <span className="auth-spinner" /> : <LogIn size={16} />}
-                {loading ? 'Signing in...' : 'Sign In'}
+                {loading ? t('Signing in...') : t('Sign In')}
               </button>
             </form>
           </div>

@@ -3,10 +3,17 @@ import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import GroupSubtaskModal from '../groups/GroupSubtaskModal';
+import DueBadge from '../../components/common/DueBadge';
+import { openAttachment } from '../../utils/downloadAttachment';
+import { useLive } from '../../context/LiveContext';
+import MentionTextarea from '../../components/common/MentionTextarea';
+import { extractMentionIds, splitMentions } from '../../utils/mentions';
+import { Pencil } from 'lucide-react';
+import { t, formatDate, formatDateTime } from '../../i18n';
 
 const priorityBadge = { low: 'badge-low', medium: 'badge-medium', high: 'badge-high' };
 const statusBadge   = { pending: 'badge-pending', in_progress: 'badge-in_progress', completed: 'badge-completed' };
-const statusLabel   = { pending: 'Pending', in_progress: 'In Progress', completed: 'Completed' };
+const statusLabel   = { pending: t('Pending'), in_progress: t('In Progress'), completed: t('Completed') };
 
 export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [task, setTask]               = useState(null);
@@ -28,6 +35,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const commentsEndRef = useRef(null);
   const { user, isAdminOrAbove, isManager, isSuperAdmin }  = useAuth();
   const [closing, setClosing] = useState(false);
+  const { tasks_unread, refresh: refreshLive } = useLive();
+  const commentsSig = useRef('');
+  const lastMarked = useRef('');
   // Assignee management
   const [candidateUsers, setCandidateUsers] = useState([]);
   const [newAssigneeId, setNewAssigneeId]   = useState('');
@@ -46,20 +56,43 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [subtasksLoading, setSubtasksLoading] = useState(false);
   const [showSubtaskModal, setShowSubtaskModal] = useState(false);
   const [openSubtaskId, setOpenSubtaskId]   = useState(null);
-  // In-group @mention on a comment
-  const [mentionUserId, setMentionUserId]   = useState('');
+  // "Seen by" markers + inline rename (private groups / their tasks)
+  const [readers, setReaders]               = useState([]);
+  const readersSig = useRef('');
+  const [editing, setEditing]               = useState(false);
+  const [editForm, setEditForm]             = useState({ title: '', description: '' });
+  const [savingEdit, setSavingEdit]         = useState(false);
+  const [groupBusy, setGroupBusy]           = useState(false);
 
   const loadTask = () =>
     api.get(`/tasks/${taskId}`)
       .then(r => setTask(r.data))
-      .catch(() => { toast.error('Failed to load task'); onClose(); })
+      .catch(() => { toast.error(t('Failed to load task')); onClose(); })
       .finally(() => setLoading(false));
+
+  // A cheap fingerprint of a comment list, so live polling only re-renders when something changed.
+  const signature = (list) => list.map(c => `${c.id}:${c.replies?.length || 0}:${c.is_answered ? 1 : 0}`).join(',');
 
   const loadComments = () => {
     setCommentsLoading(true);
     api.get(`/tasks/${taskId}/comments`)
-      .then(r => setComments(r.data))
+      .then(r => { commentsSig.current = signature(r.data); setComments(r.data); })
       .finally(() => setCommentsLoading(false));
+  };
+
+  const loadReaders = () =>
+    api.get(`/tasks/${taskId}/readers`).then(r => {
+      const next = JSON.stringify(r.data);
+      if (next !== readersSig.current) { readersSig.current = next; setReaders(r.data); }
+    }).catch(() => {});
+
+  // Quiet refresh for the live poll: no spinner, no state churn unless there's something new.
+  const pollComments = () => {
+    loadReaders();
+    return api.get(`/tasks/${taskId}/comments`).then(r => {
+      const next = signature(r.data);
+      if (next !== commentsSig.current) { commentsSig.current = next; setComments(r.data); }
+    }).catch(() => {});
   };
 
   const loadChecklist = () => {
@@ -89,7 +122,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   // A private group's membership is locked down to its creator (+ Super Admin) —
   // no department-manager fallback, since a group is meant to cross departments.
   // A sub-task inside a group additionally lets the *group's* creator manage it.
-  const locked = !!task?.closed_at && !isSuperAdmin();
+  const lockedAt = task?.closed_at || task?.archived_at || task?.parent_group?.closed_at || task?.parent_group?.archived_at;
+  const isArchived = !!(task?.archived_at || task?.parent_group?.archived_at) && !(task?.closed_at || task?.parent_group?.closed_at);
+  const locked = !!lockedAt && !isSuperAdmin();
   const canManageAssignees = task && !locked && (
     task.parent_group_id
       ? (isSuperAdmin() || task.creator_id === user?.id || task.parent_group?.creator_id === user?.id)
@@ -127,9 +162,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       await api.post(`/tasks/${taskId}/assignees`, { user_id: newAssigneeId });
       setNewAssigneeId('');
       await loadTask();
-      toast.success('Assignee added');
+      toast.success(t('Assignee added'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add assignee');
+      toast.error(err.response?.data?.message || t('Failed to add assignee'));
     } finally { setAssigneeBusy(false); }
   };
 
@@ -138,9 +173,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.delete(`/tasks/${taskId}/assignees/${userId}`);
       await loadTask();
-      toast.success('Assignee removed');
+      toast.success(t('Assignee removed'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove assignee');
+      toast.error(err.response?.data?.message || t('Failed to remove assignee'));
     } finally { setAssigneeBusy(false); }
   };
 
@@ -178,9 +213,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       await api.post(`/tasks/${taskId}/mentions`, { user_id: newMentionId });
       setNewMentionId('');
       await loadTask();
-      toast.success('Manager mentioned');
+      toast.success(t('Manager mentioned'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add mention');
+      toast.error(err.response?.data?.message || t('Failed to add mention'));
     } finally { setMentionBusy(false); }
   };
 
@@ -189,9 +224,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.delete(`/tasks/${taskId}/mentions/${userId}`);
       await loadTask();
-      toast.success('Mention removed');
+      toast.success(t('Mention removed'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove mention');
+      toast.error(err.response?.data?.message || t('Failed to remove mention'));
     } finally { setMentionBusy(false); }
   };
 
@@ -217,7 +252,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       setChecklist(prev => [...prev, data]);
       setNewChecklistTitle('');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add item');
+      toast.error(err.response?.data?.message || t('Failed to add item'));
     } finally { setChecklistBusy(false); }
   };
 
@@ -226,7 +261,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.put(`/tasks/${taskId}/checklist/${item.id}`, { is_done: !item.is_done });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update item');
+      toast.error(err.response?.data?.message || t('Failed to update item'));
       setChecklist(prev => prev.map(i => i.id === item.id ? { ...i, is_done: item.is_done } : i));
     }
   };
@@ -235,8 +270,26 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.delete(`/tasks/${taskId}/checklist/${itemId}`);
       setChecklist(prev => prev.filter(i => i.id !== itemId));
-    } catch { toast.error('Failed to delete item'); }
+    } catch { toast.error(t('Failed to delete item')); }
   };
+
+  // While the chat tab is open: pick up other people's messages every few seconds…
+  useEffect(() => {
+    if (tab !== 'qa') return undefined;
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') pollComments(); }, 8000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line
+  }, [tab, taskId]);
+
+  // …and tell the server I've read them, which clears the unread badges (private chats only).
+  useEffect(() => {
+    if (tab !== 'qa' || !task?.is_private || commentsLoading) return;
+    const key = `${taskId}:${signature(comments)}`;
+    if (key === lastMarked.current) return;
+    lastMarked.current = key;
+    api.post(`/tasks/${taskId}/read`).then(() => { refreshLive(); loadReaders(); }).catch(() => {});
+    // eslint-disable-next-line
+  }, [tab, task?.is_private, comments, commentsLoading, taskId]);
 
   // scroll to bottom when comments tab opened
   useEffect(() => {
@@ -249,22 +302,22 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       const { data } = await api.put(`/tasks/${taskId}/status`, { status });
       setTask(t => ({ ...t, status: data.status }));
-      toast.success('Status updated');
+      toast.success(t('Status updated'));
       onStatusChanged?.();
-    } catch { toast.error('Failed to update status'); }
+    } catch { toast.error(t('Failed to update status')); }
     finally { setUpdatingStatus(false); }
   };
 
   // ── Close / reopen (private groups, Super Admin only) ────────────────────
   const closeGroup = async () => {
-    if (!confirm('Close this group? Members will no longer be able to post, edit, or add anyone until it is reopened.')) return;
+    if (!confirm(t('Close this group? Members will no longer be able to post, edit, or add anyone until it is reopened.'))) return;
     setClosing(true);
     try {
       const { data } = await api.post(`/tasks/${taskId}/close`);
       setTask(t => ({ ...t, closed_at: data.closed_at }));
-      toast.success('Group closed');
+      toast.success(t('Group closed'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to close group');
+      toast.error(err.response?.data?.message || t('Failed to close group'));
     } finally { setClosing(false); }
   };
 
@@ -273,9 +326,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.post(`/tasks/${taskId}/reopen`);
       setTask(t => ({ ...t, closed_at: null }));
-      toast.success('Group reopened');
+      toast.success(t('Group reopened'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to reopen group');
+      toast.error(err.response?.data?.message || t('Failed to reopen group'));
     } finally { setClosing(false); }
   };
 
@@ -290,7 +343,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       onStatusChanged?.();
       await loadTask();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to complete step');
+      toast.error(err.response?.data?.message || t('Failed to complete step'));
     } finally { setCompletingStep(false); }
   };
 
@@ -305,18 +358,18 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       await api.post(`/tasks/${taskId}/attachments`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       const { data } = await api.get(`/tasks/${taskId}`);
       setTask(data);
-      toast.success('File uploaded');
-    } catch { toast.error('Upload failed'); }
+      toast.success(t('File uploaded'));
+    } catch { toast.error(t('Upload failed')); }
     finally { setUploading(false); }
   };
 
   const deleteAttachment = async (attachId) => {
-    if (!confirm('Delete this file?')) return;
+    if (!confirm(t('Delete this file?'))) return;
     try {
       await api.delete(`/attachments/${attachId}`);
       setTask(t => ({ ...t, attachments: t.attachments.filter(a => a.id !== attachId) }));
-      toast.success('File deleted');
-    } catch { toast.error('Failed to delete'); }
+      toast.success(t('File deleted'));
+    } catch { toast.error(t('Failed to delete')); }
   };
 
   // ── Comments / Q&A ────────────────────────────────────────────────────────
@@ -327,14 +380,13 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       const { data } = await api.post(`/tasks/${taskId}/comments`, {
         content: newComment.trim(),
         is_question: isQuestion,
-        mentioned_user_id: mentionUserId || undefined,
+        mentioned_user_ids: extractMentionIds(newComment, taggableUsers),
       });
       setComments(prev => [data, ...prev]);
       setNewComment('');
       setIsQuestion(false);
-      setMentionUserId('');
-      toast.success(isQuestion ? 'Question posted' : 'Comment added');
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to post'); }
+      toast.success(isQuestion ? t('Question posted') : t('Comment added'));
+    } catch (err) { toast.error(err.response?.data?.message || t('Failed to post')); }
     finally { setPosting(false); }
   };
 
@@ -346,13 +398,14 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
         content: replyText.trim(),
         parent_id: parentId,
         is_question: false,
+        mentioned_user_ids: extractMentionIds(replyText, taggableUsers),
       });
       setComments(prev => prev.map(c =>
         c.id === parentId ? { ...c, replies: [...(c.replies || []), data] } : c
       ));
       setReplyTo(null);
       setReplyText('');
-    } catch { toast.error('Failed to reply'); }
+    } catch (err) { toast.error(err.response?.data?.message || t('Failed to reply')); }
     finally { setPosting(false); }
   };
 
@@ -360,20 +413,60 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     try {
       await api.put(`/tasks/${taskId}/comments/${commentId}/resolve`);
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_answered: true } : c));
-      toast.success('Marked as answered');
-    } catch { toast.error('Failed to resolve'); }
+      toast.success(t('Marked as answered'));
+    } catch { toast.error(t('Failed to resolve')); }
   };
 
   const deleteComment = async (commentId) => {
-    if (!confirm('Delete this comment?')) return;
+    if (!confirm(t('Delete this comment?'))) return;
     try {
       await api.delete(`/tasks/${taskId}/comments/${commentId}`);
       setComments(prev => prev.filter(c => c.id !== commentId));
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('Failed to delete')); }
+  };
+
+  // ── Rename / leave / archive (private groups) ─────────────────────────────
+  const canRename = !!task?.is_private && !locked &&
+    (isSuperAdmin() || task.creator_id === user?.id || task.parent_group?.creator_id === user?.id);
+  const isGroupRoot = !!task?.is_private && !task?.parent_group_id;
+  const canArchive = isGroupRoot && (isSuperAdmin() || task.creator_id === user?.id);
+  const canLeave = isGroupRoot && task.creator_id !== user?.id && task.assignees?.some(a => a.id === user?.id) && !locked;
+
+  const startEdit = () => {
+    setEditForm({ title: task.title, description: task.description || '' });
+    setTab('details');
+    setEditing(true);
+  };
+
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    setSavingEdit(true);
+    try {
+      await api.put(`/tasks/${taskId}`, { title: editForm.title.trim(), description: editForm.description });
+      setTask(t => ({ ...t, title: editForm.title.trim(), description: editForm.description }));
+      setEditing(false);
+      toast.success(t('Saved'));
+      onStatusChanged?.();
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('Failed to save'));
+    } finally { setSavingEdit(false); }
+  };
+
+  const groupAction = async (path, confirmText, successText) => {
+    if (confirmText && !confirm(confirmText)) return;
+    setGroupBusy(true);
+    try {
+      await api.post(`/tasks/${taskId}/${path}`);
+      toast.success(successText);
+      onStatusChanged?.();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('Something went wrong'));
+    } finally { setGroupBusy(false); }
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const myActiveStep  = task?.workflowSteps?.find(s => s.user_id === user?.id && s.status === 'active');
+  const myActiveStep  = task?.workflow_steps?.find(s => s.user_id === user?.id && s.status === 'active');
   const canChangeStatus = !task?.workflow_enabled && !locked &&
     (isAdminOrAbove() || isManager() || task?.assignees?.some(a => a.id === user?.id) || task?.creator_id === user?.id);
   const nextStatuses  = task ? ['pending', 'in_progress', 'completed'].filter(s => s !== task.status) : [];
@@ -406,43 +499,49 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
         <div className="modal-content">
 
           {loading ? (
-            <div className="modal-body text-center p-5" style={{ color: 'var(--text-secondary)' }}>Loading task...</div>
+            <div className="modal-body text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('Loading task...')}</div>
           ) : task ? (
             <>
               {/* ── Header ── */}
               <div className="modal-header" style={{ paddingBottom: 0, flexDirection: 'column', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 10 }}>
-                  <div style={{ flex: 1, paddingRight: 12 }}>
+                  <div style={{ flex: 1, paddingInlineEnd: 12 }}>
                     <div className="d-flex gap-2 mb-2 flex-wrap">
                       <span className={`badge ${priorityBadge[task.priority]}`} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12 }}>
-                        {task.priority} priority
+                        {t('{priority} priority', { priority: t(task.priority) })}
                       </span>
                       <span className={`badge ${statusBadge[task.status]}`} style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12 }}>
                         {statusLabel[task.status]}
                       </span>
+                      <DueBadge task={task} />
                       {task.is_private && (
                         <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                          🔒 Private Group
+                          {t('🔒 Private Group')}
                         </span>
                       )}
                       {task.closed_at && (
                         <span style={{ fontSize: 12, background: '#ef444420', color: '#ef4444', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                          🚫 Closed
+                          {t('🚫 Closed')}
+                        </span>
+                      )}
+                      {task.archived_at && (
+                        <span style={{ fontSize: 12, background: '#64748b20', color: '#64748b', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                          {t('📦 Archived')}
                         </span>
                       )}
                       {task.workflow_enabled && (
                         <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                          🔄 Workflow
+                          {t('🔄 Workflow')}
                         </span>
                       )}
                       {task.recurrence && (
                         <span style={{ fontSize: 12, background: '#10b98120', color: '#10b981', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
-                          🔁 Repeats {task.recurrence}
+                          {t('🔁 Repeats')} {t(task.recurrence)}
                         </span>
                       )}
                       {task.recurrence_parent_id && (
                         <span style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '3px 10px', background: 'var(--bg-primary)', borderRadius: 20, border: '1px solid var(--border-color)' }}>
-                          Auto-generated
+                          {t('Auto-generated')}
                         </span>
                       )}
                       {task.department && (
@@ -453,30 +552,38 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                     </div>
                     {task.parent_group_id && task.parent_group && (
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                        ↳ Part of <strong>{task.parent_group.title}</strong>
+                        {t('↳ Part of')} <strong>{task.parent_group.title}</strong>
                       </div>
                     )}
-                    <h5 style={{ fontWeight: 700, margin: 0 }}>{task.title}</h5>
+                    <h5 style={{ fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {task.title}
+                      {canRename && (
+                        <button type="button" onClick={startEdit} title={t("Rename / edit description")}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', padding: 2 }}>
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                    </h5>
                   </div>
                   <button className="btn-close" onClick={onClose} />
                 </div>
 
                 {/* Tabs */}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', width: '100%' }}>
-                  <button style={tabStyle('details')} onClick={() => setTab('details')}>Details</button>
+                  <button style={tabStyle('details')} onClick={() => setTab('details')}>{t('Details')}</button>
                   <button style={tabStyle('qa')} onClick={() => setTab('qa')}>
                     💬 Q&A
                     {unansweredQ > 0 && (
-                      <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                      <span style={{ marginInlineStart: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                         {unansweredQ}
                       </span>
                     )}
                   </button>
                   {showTasksTab && (
                     <button style={tabStyle('tasks')} onClick={() => setTab('tasks')}>
-                      📋 Tasks
+                      {t('📋 Tasks')}
                       {subtasks.length > 0 && (
-                        <span style={{ marginLeft: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                        <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                           {subtasks.length}
                         </span>
                       )}
@@ -484,10 +591,10 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                   )}
                   {task.workflow_enabled && (
                     <button style={tabStyle('workflow')} onClick={() => setTab('workflow')}>
-                      🔄 Workflow
+                      {t('🔄 Workflow')}
                       {myActiveStep && (
-                        <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
-                          Your Turn!
+                        <span style={{ marginInlineStart: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                          {t('Your Turn!')}
                         </span>
                       )}
                     </button>
@@ -497,39 +604,56 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
 
               <div className="modal-body">
 
-                {task.closed_at && (
-                  <div style={{ marginBottom: 16, padding: '10px 14px', background: '#ef444415', border: '1px solid #ef444440', borderRadius: 8, fontSize: 13, color: '#ef4444', fontWeight: 500 }}>
-                    🚫 This group is closed{isSuperAdmin() ? ' — as Super Admin you can still act on it, but others cannot.' : '. No one can post, edit, or add members until it is reopened.'}
+                {lockedAt && (
+                  <div style={{ marginBottom: 16, padding: '10px 14px', background: isArchived ? '#64748b15' : '#ef444415', border: `1px solid ${isArchived ? '#64748b40' : '#ef444440'}`, borderRadius: 8, fontSize: 13, color: isArchived ? '#475569' : '#ef4444', fontWeight: 500 }}>
+                    {isArchived
+                      ? t('📦 This group is archived — it is read-only until the creator restores it.')
+                      : (isSuperAdmin() ? t('🚫 This group is closed — as Super Admin you can still act on it, but others cannot.') : t('🚫 This group is closed. No one can post, edit, or add members until it is reopened.'))}
                   </div>
                 )}
 
                 {/* ── DETAILS TAB ── */}
                 {tab === 'details' && (
                   <>
-                    {task.description ? (
+                    {editing ? (
+                      <form onSubmit={saveEdit} className="mb-4 p-3" style={{ background: 'var(--bg-primary)', borderRadius: 10, border: '1px solid var(--border-color)' }}>
+                        <label className="form-label" style={{ fontSize: 12 }}>{t('Name')}</label>
+                        <input className="form-control mb-2" value={editForm.title} maxLength={255} required autoFocus
+                          onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+                        <label className="form-label" style={{ fontSize: 12 }}>{t('Description')}</label>
+                        <textarea className="form-control mb-3" rows={3} value={editForm.description}
+                          onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                        <div className="d-flex gap-2">
+                          <button className="btn-accent" type="submit" disabled={savingEdit || !editForm.title.trim()} style={{ fontSize: 13 }}>
+                            {savingEdit ? t('Saving...') : t('Save changes')}
+                          </button>
+                          <button className="btn btn-secondary btn-sm" type="button" onClick={() => setEditing(false)}>{t('Cancel')}</button>
+                        </div>
+                      </form>
+                    ) : task.description ? (
                       <div className="mb-4">
-                        <SectionTitle>Description</SectionTitle>
+                        <SectionTitle>{t('Description')}</SectionTitle>
                         <p style={{ fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{task.description}</p>
                       </div>
                     ) : (
-                      <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>No description.</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>{t('No description.')}</p>
                     )}
 
                     <div className="row g-4">
                       <div className="col-md-6">
-                        <SectionTitle>Details</SectionTitle>
+                        <SectionTitle>{t('Details')}</SectionTitle>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          <MetaRow icon="👤" label="Created by" value={task.creator?.name} />
+                          <MetaRow icon="👤" label={t('Created by')} value={task.creator?.name} />
                           {task.due_date && (
-                            <MetaRow icon="📅" label="Due date"
-                              value={new Date(task.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
+                            <MetaRow icon="📅" label={t('Due date')}
+                              value={formatDate(task.due_date, { day: 'numeric', month: 'short', year: 'numeric' }, 'en-GB')} />
                           )}
-                          <MetaRow icon="🕒" label="Created" value={new Date(task.created_at).toLocaleDateString()} />
+                          <MetaRow icon="🕒" label={t('Created')} value={formatDate(task.created_at)} />
                         </div>
                       </div>
 
                       <div className="col-md-6">
-                        <SectionTitle>Assigned to</SectionTitle>
+                        <SectionTitle>{t('Assigned to')}</SectionTitle>
                         {task.assignees?.length ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {task.assignees.map(u => (
@@ -541,14 +665,14 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   <button
                                     onClick={() => removeAssignee(u.id)}
                                     disabled={assigneeBusy}
-                                    title="Remove assignee"
+                                    title={t("Remove assignee")}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
                                   >✕</button>
                                 )}
                               </div>
                             ))}
                           </div>
-                        ) : <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No one assigned</span>}
+                        ) : <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('No one assigned')}</span>}
 
                         {canManageAssignees && (
                           <div className="d-flex gap-2 mt-2">
@@ -558,7 +682,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               onChange={e => setNewAssigneeId(e.target.value)}
                               style={{ fontSize: 12 }}
                             >
-                              <option value="">+ Add assignee...</option>
+                              <option value="">{t('+ Add assignee...')}</option>
                               {candidateUsers
                                 .filter(u => !task.assignees?.some(a => a.id === u.id))
                                 .map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -568,7 +692,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               onClick={addAssignee}
                               disabled={!newAssigneeId || assigneeBusy}
                               style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                            >Add</button>
+                            >{t('Add')}</button>
                           </div>
                         )}
 
@@ -576,7 +700,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                         {(!task.is_private || task.parent_group_id) && (task.mentions?.length > 0 || canManageMentions) && (
                           <div className="mt-3">
                             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                              {task.parent_group_id ? 'Mentioned:' : 'Mentioned managers:'}
+                              {task.parent_group_id ? t('Mentioned:') : t('Mentioned managers:')}
                             </div>
                             {task.mentions?.length > 0 ? (
                               <div className="d-flex flex-wrap gap-1 mb-2">
@@ -587,7 +711,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                       <button
                                         onClick={() => removeMention(u.id)}
                                         disabled={mentionBusy}
-                                        title="Remove mention"
+                                        title={t("Remove mention")}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12, padding: 0, lineHeight: 1 }}
                                       >✕</button>
                                     )}
@@ -595,7 +719,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                 ))}
                               </div>
                             ) : (
-                              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No one mentioned</span>
+                              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('No one mentioned')}</span>
                             )}
 
                             {canManageMentions && (
@@ -606,7 +730,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   onChange={e => setNewMentionId(e.target.value)}
                                   style={{ fontSize: 12 }}
                                 >
-                                  <option value="">{task.parent_group_id ? '+ Mention a group member...' : '+ Mention a manager...'}</option>
+                                  <option value="">{task.parent_group_id ? t('+ Mention a group member...') : t('+ Mention a manager...')}</option>
                                   {candidateManagers
                                     .filter(u => !task.mentions?.some(m => m.id === u.id))
                                     .map(u => (
@@ -620,7 +744,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   onClick={addMention}
                                   disabled={!newMentionId || mentionBusy}
                                   style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                                >Add</button>
+                                >{t('Add')}</button>
                               </div>
                             )}
                           </div>
@@ -631,7 +755,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                     {/* Change status */}
                     {canChangeStatus && nextStatuses.length > 0 && (
                       <div className="mt-4 p-3" style={{ background: 'var(--bg-primary)', borderRadius: 10, border: '1px solid var(--border-color)' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Move task to:</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{t('Move task to:')}</div>
                         <div className="d-flex gap-2 flex-wrap">
                           {nextStatuses.map(s => (
                             <button key={s} onClick={() => changeStatus(s)} disabled={updatingStatus}
@@ -649,7 +773,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                       <div className="mt-4">
                         <div className="d-flex align-items-center justify-content-between mb-2">
                           <SectionTitle>
-                            Checklist {checklist.length > 0 && `(${checklist.filter(i => i.is_done).length}/${checklist.length})`}
+                            {t('Checklist')} {checklist.length > 0 && `(${checklist.filter(i => i.is_done).length}/${checklist.length})`}
                           </SectionTitle>
                         </div>
                         {checklist.length > 0 && (
@@ -663,7 +787,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           </div>
                         )}
                         {checklistLoading ? (
-                          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading...</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('Loading...')}</div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: canEditChecklist ? 10 : 0 }}>
                             {checklist.map(item => (
@@ -686,7 +810,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                 {canEditChecklist && (
                                   <button
                                     onClick={() => deleteChecklistItem(item.id)}
-                                    title="Remove item"
+                                    title={t("Remove item")}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
                                   >✕</button>
                                 )}
@@ -698,7 +822,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           <div className="d-flex gap-2">
                             <input
                               className="form-control form-control-sm"
-                              placeholder="Add a checklist item..."
+                              placeholder={t("Add a checklist item...")}
                               value={newChecklistTitle}
                               onChange={e => setNewChecklistTitle(e.target.value)}
                               onKeyDown={e => e.key === 'Enter' && addChecklistItem()}
@@ -709,7 +833,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               onClick={addChecklistItem}
                               disabled={!newChecklistTitle.trim() || checklistBusy}
                               style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                            >Add</button>
+                            >{t('Add')}</button>
                           </div>
                         )}
                       </div>
@@ -717,19 +841,19 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
 
                     {/* Attachments */}
                     <div className="mt-4">
-                      <SectionTitle>Attachments ({task.attachments?.length || 0})</SectionTitle>
+                      <SectionTitle>{t('Attachments (')}{task.attachments?.length || 0})</SectionTitle>
                       {task.attachments?.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                           {task.attachments.map(att => (
                             <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
                               <span style={{ fontSize: 20 }}>{fileIcon(att.file_type)}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <a href={att.url} target="_blank" rel="noreferrer"
-                                  style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)', wordBreak: 'break-all' }}>
+                                <button type="button" onClick={() => openAttachment(att)}
+                                  style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)', wordBreak: 'break-all', background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
                                   {att.file_name}
-                                </a>
+                                </button>
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                  by {att.user?.name} · {(att.file_size / 1024).toFixed(0)} KB
+                                  {t('by')} {att.user?.name} · {(att.file_size / 1024).toFixed(0)} {t('KB')}
                                 </div>
                               </div>
                               {(isAdminOrAbove() || att.user?.id === user?.id) && (
@@ -748,7 +872,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                             color: uploading ? 'var(--text-secondary)' : 'var(--accent)',
                             border: '1px dashed var(--border-color)', borderRadius: 8, padding: '8px 14px',
                             cursor: uploading ? 'not-allowed' : 'pointer' }}>
-                            📎 {uploading ? 'Uploading...' : 'Add Attachment'}
+                            📎 {uploading ? t('Uploading...') : t('Add Attachment')}
                           </span>
                         </label>
                       )}
@@ -768,7 +892,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                             background: !isQuestion ? 'var(--accent)' : 'transparent',
                             color: !isQuestion ? '#fff' : 'var(--text-secondary)', cursor: 'pointer' }}
                         >
-                          💬 Comment
+                          {t('💬 Comment')}
                         </button>
                         <button
                           onClick={() => setIsQuestion(true)}
@@ -776,42 +900,31 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                             background: isQuestion ? '#f59e0b' : 'transparent',
                             color: isQuestion ? '#fff' : 'var(--text-secondary)', cursor: 'pointer' }}
                         >
-                          ❓ Ask a Question
+                          {t('❓ Ask a Question')}
                         </button>
                       </div>
-                      <textarea
-                        className="form-control"
+                      <MentionTextarea
                         rows={3}
-                        placeholder={isQuestion ? 'Ask something about this task...' : 'Leave a comment...'}
+                        placeholder={isQuestion ? t('Ask something about this task… (type @ to tag someone)') : t('Leave a comment… (type @ to tag someone)')}
                         value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
+                        onChange={setNewComment}
+                        users={taggableUsers}
                         style={{ marginBottom: 10 }}
                       />
-                      {taggableUsers.length > 0 && (
-                        <select
-                          className="form-select form-select-sm"
-                          value={mentionUserId}
-                          onChange={e => setMentionUserId(e.target.value)}
-                          style={{ fontSize: 12, marginBottom: 10, maxWidth: 240 }}
-                        >
-                          <option value="">🏷️ Tag someone (optional)</option>
-                          {taggableUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                      )}
                       <button className="btn-accent" onClick={postComment} disabled={posting || !newComment.trim() || locked} style={{ fontSize: 13 }}>
-                        {posting ? 'Posting...' : isQuestion ? '❓ Post Question' : '💬 Post Comment'}
+                        {posting ? t('Posting...') : isQuestion ? t('❓ Post Question') : t('💬 Post Comment')}
                       </button>
                     </div>
 
                     {/* Comments list */}
                     {commentsLoading && (
-                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</div>
                     )}
 
                     {!commentsLoading && comments.length === 0 && (
                       <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>💬</div>
-                        <p style={{ fontSize: 13 }}>No comments yet. Be the first!</p>
+                        <p style={{ fontSize: 13 }}>{t('No comments yet. Be the first!')}</p>
                       </div>
                     )}
 
@@ -824,6 +937,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           currentUser={user}
                           isAdmin={isAdminOrAbove()}
                           isCreator={task.creator_id === user?.id}
+                          taggableUsers={taggableUsers}
+                          readers={task.is_private ? readers : []}
                           replyTo={replyTo}
                           replyText={replyText}
                           posting={posting}
@@ -844,21 +959,21 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Every group member can see these tasks; only its own creator (or the group's creator) can edit one.
+                        {t("Every group member can see these tasks; only its own creator (or the group's creator) can edit one.")}
                       </div>
                       {!locked && (
                         <button className="btn btn-sm btn-accent" onClick={() => setShowSubtaskModal(true)} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                          + New Task
+                          {t('+ New Task')}
                         </button>
                       )}
                     </div>
 
                     {subtasksLoading ? (
-                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+                      <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</div>
                     ) : subtasks.length === 0 ? (
                       <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
-                        <p style={{ fontSize: 13 }}>No tasks yet. Create one for a specific member (or a few) to work on.</p>
+                        <p style={{ fontSize: 13 }}>{t('No tasks yet. Create one for a specific member (or a few) to work on.')}</p>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -869,6 +984,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               {statusLabel[st.status]}
                             </span>
                             <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{st.title}</span>
+                            <DueBadge task={st} size="sm" />
+                            {tasks_unread[st.id] > 0 && <span className="unread-pill" title={t("Unread messages")}>{tasks_unread[st.id]}</span>}
                             <div className="d-flex gap-1">
                               {st.assignees?.slice(0, 3).map(u => <UserAvatar key={u.id} user={u} size={22} />)}
                             </div>
@@ -880,9 +997,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                 )}
 
                 {/* ── WORKFLOW TAB ── */}
-                {tab === 'workflow' && task.workflowSteps && (
+                {tab === 'workflow' && task.workflow_steps && (
                   <WorkflowPanel
-                    steps={task.workflowSteps}
+                    steps={task.workflow_steps}
                     myActiveStep={myActiveStep}
                     completeNotes={completeNotes}
                     setCompleteNotes={setCompleteNotes}
@@ -896,18 +1013,37 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
               </div>
 
               <div className="modal-footer">
-                {showTasksTab && isSuperAdmin() && (
-                  task.closed_at ? (
-                    <button className="btn btn-outline-success" onClick={reopenGroup} disabled={closing} style={{ fontSize: 13 }}>
-                      {closing ? '...' : '▶ Reopen Group'}
+                {canLeave && (
+                  <button className="btn btn-outline-secondary" disabled={groupBusy} style={{ fontSize: 13, marginInlineEnd: 'auto' }}
+                    onClick={() => groupAction('leave', 'Leave this group? You will lose access to it and everything inside, until someone adds you again.', 'You left the group')}>
+                    {t('🚪 Leave group')}
+                  </button>
+                )}
+                {canArchive && (
+                  task.archived_at ? (
+                    <button className="btn btn-outline-primary" disabled={groupBusy} style={{ fontSize: 13 }}
+                      onClick={() => groupAction('unarchive', null, 'Group restored')}>
+                      {t('♻️ Restore group')}
                     </button>
                   ) : (
-                    <button className="btn btn-outline-danger" onClick={closeGroup} disabled={closing} style={{ fontSize: 13 }}>
-                      {closing ? '...' : '🚫 Close Group'}
+                    <button className="btn btn-outline-secondary" disabled={groupBusy} style={{ fontSize: 13 }}
+                      onClick={() => groupAction('archive', 'Archive this group? It becomes read-only and moves to the Archived tab. You can restore it any time.', 'Group archived')}>
+                      {t('📦 Archive')}
                     </button>
                   )
                 )}
-                <button className="btn btn-secondary" onClick={onClose}>Close</button>
+                {showTasksTab && isSuperAdmin() && (
+                  task.closed_at ? (
+                    <button className="btn btn-outline-success" onClick={reopenGroup} disabled={closing} style={{ fontSize: 13 }}>
+                      {closing ? '...' : t('▶ Reopen Group')}
+                    </button>
+                  ) : (
+                    <button className="btn btn-outline-danger" onClick={closeGroup} disabled={closing} style={{ fontSize: 13 }}>
+                      {closing ? '...' : t('🚫 Close Group')}
+                    </button>
+                  )
+                )}
+                <button className="btn btn-secondary" onClick={onClose}>{t('Close')}</button>
               </div>
             </>
           ) : null}
@@ -943,7 +1079,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
 
 /* ── Comment Card ──────────────────────────────────────────────────────────── */
 
-function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, replyTo, replyText, posting, onSetReply, onReplyTextChange, onPostReply, onResolve, onDelete }) {
+function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggableUsers, readers, replyTo, replyText, posting, onSetReply, onReplyTextChange, onPostReply, onResolve, onDelete }) {
   const canResolve  = (isAdmin || isCreator) && comment.is_question && !comment.is_answered;
   const canDelete   = isAdmin || comment.user_id === currentUser?.id;
   const isMyReplyOpen = replyTo?.id === comment.id;
@@ -959,38 +1095,36 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, replyTo
               <span style={{ fontWeight: 600, fontSize: 13 }}>{comment.user?.name}</span>
               {comment.is_question && (
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: comment.is_answered ? '#d1fae5' : '#fef3c7', color: comment.is_answered ? '#059669' : '#d97706', fontWeight: 600 }}>
-                  {comment.is_answered ? '✅ Answered' : '❓ Question'}
+                  {comment.is_answered ? t('✅ Answered') : t('❓ Question')}
                 </span>
               )}
               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                {new Date(comment.created_at).toLocaleString()}
+                {formatDateTime(comment.created_at)}
               </span>
-              {comment.mentioned_user && (
-                <span style={{ fontSize: 11, background: '#6366f120', color: '#6366f1', padding: '1px 8px', borderRadius: 20, fontWeight: 600 }}>
-                  🏷️ @{comment.mentioned_user.name}
-                </span>
-              )}
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{comment.content}</p>
+            <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+              <MessageText text={comment.content} tagged={comment.mentioned_users} />
+            </p>
+            <SeenBy message={comment} readers={readers} authorId={comment.user_id} />
           </div>
         </div>
 
         {/* Actions */}
-        <div className="d-flex gap-2 mt-2" style={{ paddingLeft: 42 }}>
+        <div className="d-flex gap-2 mt-2" style={{ paddingInlineStart: 42 }}>
           <button onClick={() => onSetReply(isMyReplyOpen ? null : { id: comment.id, user: comment.user })}
             style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
-            ↩ Reply
+            {t('↩ Reply')}
           </button>
           {canResolve && (
             <button onClick={() => onResolve(comment.id)}
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#10b981' }}>
-              ✅ Mark Answered
+              {t('✅ Mark Answered')}
             </button>
           )}
           {canDelete && (
             <button onClick={() => onDelete(comment.id)}
               style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-              🗑️ Delete
+              {t('🗑️ Delete')}
             </button>
           )}
         </div>
@@ -1005,9 +1139,12 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, replyTo
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
                   <span style={{ fontWeight: 600, fontSize: 12 }}>{reply.user?.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(reply.created_at).toLocaleString()}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDateTime(reply.created_at)}</span>
                 </div>
-                <p style={{ fontSize: 13, margin: 0, lineHeight: 1.5 }}>{reply.content}</p>
+                <p style={{ fontSize: 13, margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  <MessageText text={reply.content} tagged={reply.mentioned_users} />
+                </p>
+                <SeenBy message={reply} readers={readers} authorId={reply.user_id} />
               </div>
             </div>
           ))}
@@ -1018,23 +1155,25 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, replyTo
       {isMyReplyOpen && (
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-            Replying to <strong>{replyTo.user?.name}</strong>
+            {t('Replying to')} <strong>{replyTo.user?.name}</strong>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <textarea
-              className="form-control"
-              rows={2}
-              placeholder="Write your reply..."
-              value={replyText}
-              onChange={e => onReplyTextChange(e.target.value)}
-              style={{ fontSize: 13 }}
-            />
+            <div style={{ flex: 1 }}>
+              <MentionTextarea
+                rows={2}
+                placeholder={t("Write your reply… (type @ to tag someone)")}
+                value={replyText}
+                onChange={onReplyTextChange}
+                users={taggableUsers}
+                style={{ fontSize: 13 }}
+              />
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <button className="btn-accent" onClick={() => onPostReply(comment.id)} disabled={posting || !replyText.trim()} style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap' }}>
-                {posting ? '...' : 'Reply'}
+                {posting ? '...' : t('Reply')}
               </button>
               <button onClick={() => onSetReply(null)} style={{ fontSize: 12, background: 'none', border: '1px solid var(--border-color)', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                Cancel
+                {t('Cancel')}
               </button>
             </div>
           </div>
@@ -1052,8 +1191,8 @@ function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, s
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Sequential Workflow</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Task moves step by step through the chain.</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t('Sequential Workflow')}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('Task moves step by step through the chain.')}</div>
       </div>
 
       <div>
@@ -1075,17 +1214,17 @@ function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, s
               )}
             </div>
 
-            <div style={{ flex: 1, marginLeft: 14, paddingBottom: idx < steps.length - 1 ? 20 : 0 }}>
+            <div style={{ flex: 1, marginInlineStart: 14, paddingBottom: idx < steps.length - 1 ? 20 : 0 }}>
               <div style={{ background: step.status === 'active' ? '#6366f110' : 'var(--bg-primary)', border: `1px solid ${step.status === 'active' ? '#6366f1' : 'var(--border-color)'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <UserAvatar user={step.user} size={28} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{step.user?.name}</span>
-                    <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px', borderRadius: 20, background: stepColors[step.status] + '20', color: stepColors[step.status], fontWeight: 600 }}>
-                      {step.status === 'waiting' ? '⏳ Waiting' : step.status === 'active' ? '🔵 Active' : '✅ Done'}
+                    <span style={{ marginInlineStart: 8, fontSize: 11, padding: '2px 8px', borderRadius: 20, background: stepColors[step.status] + '20', color: stepColors[step.status], fontWeight: 600 }}>
+                      {step.status === 'waiting' ? t('⏳ Waiting') : step.status === 'active' ? t('🔵 Active') : t('✅ Done')}
                     </span>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Step {step.step_order}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('Step')} {step.step_order}</span>
                 </div>
                 {step.status === 'completed' && step.notes && (
                   <div style={{ marginTop: 6, padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: 6, fontStyle: 'italic', fontSize: 12 }}>
@@ -1102,34 +1241,60 @@ function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, s
         <div style={{ marginTop: 20, padding: '14px 18px', background: '#d1fae5', borderRadius: 10, border: '1px solid #10b981', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 24 }}>🎉</span>
           <div>
-            <div style={{ fontWeight: 700, color: '#059669' }}>All steps completed!</div>
-            <div style={{ fontSize: 12, color: '#047857' }}>This task has been fully completed.</div>
+            <div style={{ fontWeight: 700, color: '#059669' }}>{t('All steps completed!')}</div>
+            <div style={{ fontSize: 12, color: '#047857' }}>{t('This task has been fully completed.')}</div>
           </div>
         </div>
       )}
 
       {myActiveStep && !taskCompleted && (
         <div style={{ marginTop: 24, padding: '18px', background: '#6366f110', borderRadius: 12, border: '2px solid #6366f1' }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', marginBottom: 4 }}>🔵 It's your turn!</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>You are on Step {myActiveStep.step_order}.</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', marginBottom: 4 }}>{t("🔵 It's your turn!")}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>{t('You are on Step')} {myActiveStep.step_order}.</div>
           {!showCompleteForm ? (
             <button onClick={() => setShowCompleteForm(true)} className="btn-accent" style={{ fontSize: 14 }}>
-              ✓ Mark My Step as Done
+              {t('✓ Mark My Step as Done')}
             </button>
           ) : (
             <div>
-              <label className="form-label">Note for the next person (optional):</label>
+              <label className="form-label">{t('Note for the next person (optional):')}</label>
               <textarea className="form-control mb-3" rows={3} value={completeNotes} onChange={e => setCompleteNotes(e.target.value)} />
               <div className="d-flex gap-2">
                 <button onClick={onComplete} disabled={completing} className="btn-accent">
-                  {completing ? 'Completing...' : '✓ Complete & Pass On'}
+                  {completing ? t('Completing...') : t('✓ Complete & Pass On')}
                 </button>
-                <button onClick={() => setShowCompleteForm(false)} className="btn btn-secondary" disabled={completing}>Cancel</button>
+                <button onClick={() => setShowCompleteForm(false)} className="btn btn-secondary" disabled={completing}>{t('Cancel')}</button>
               </div>
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Message text with highlighted @tags + "seen by" ─────────────────────────── */
+
+function MessageText({ text, tagged }) {
+  return splitMentions(text, tagged).map((part, i) =>
+    part.mention ? <span key={i} className="mention-chip">{part.text}</span> : <span key={i}>{part.text}</span>
+  );
+}
+
+/** Small avatars of members who have read up to (at least) this message — shown under your own messages. */
+function SeenBy({ message, readers, authorId }) {
+  const { user } = useAuth();
+  if (!readers?.length || authorId !== user?.id) return null;
+
+  const seen = readers.filter(r => r.id !== user.id && r.last_read_comment_id >= message.id);
+  if (seen.length === 0) return null;
+
+  return (
+    <div className="seen-by" title={`Seen by ${seen.map(r => r.name).join(', ')}`} style={{ marginTop: 4 }}>
+      👁
+      {seen.slice(0, 5).map(r => <UserAvatar key={r.id} user={r} size={16} />)}
+      {seen.length > 5 && <span>+{seen.length - 5}</span>}
+      <span>{t('Seen by')} {seen.length === 1 ? seen[0].name : `${seen.length} people`}</span>
     </div>
   );
 }
@@ -1165,5 +1330,5 @@ function MetaRow({ icon, label, value }) {
 }
 
 function YouBadge() {
-  return <span style={{ fontSize: 11, background: 'var(--accent)20', color: 'var(--accent)', padding: '1px 7px', borderRadius: 20 }}>You</span>;
+  return <span style={{ fontSize: 11, background: 'var(--accent)20', color: 'var(--accent)', padding: '1px 7px', borderRadius: 20 }}>{t('You')}</span>;
 }

@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Palette, Type, Camera, Save } from 'lucide-react';
 import api from '../../api/axios';
 import { useSettings } from '../../context/SettingsContext';
+import { t } from '../../i18n';
 
 export default function BrandingPage() {
   const { appName, logoUrl, refreshSettings } = useSettings();
@@ -22,9 +23,9 @@ export default function BrandingPage() {
     try {
       await api.put('/settings', { app_name: name });
       await refreshSettings();
-      toast.success('App name updated');
+      toast.success(t('App name updated'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update name');
+      toast.error(err.response?.data?.message || t('Failed to update name'));
     } finally { setSavingName(false); }
   };
 
@@ -47,9 +48,9 @@ export default function BrandingPage() {
       await refreshSettings();
       setLogoFile(null);
       setLogoPreview(null);
-      toast.success('Logo updated');
+      toast.success(t('Logo updated'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to upload logo');
+      toast.error(err.response?.data?.message || t('Failed to upload logo'));
     } finally { setSavingLogo(false); }
   };
 
@@ -59,8 +60,8 @@ export default function BrandingPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Branding</h1>
-          <p className="page-subtitle">Super Admin only — customize the name and logo shown across the app and the login page</p>
+          <h1 className="page-title">{t('Branding')}</h1>
+          <p className="page-subtitle">{t('Super Admin only — customize the name and logo shown across the app and the login page')}</p>
         </div>
       </div>
 
@@ -73,8 +74,8 @@ export default function BrandingPage() {
                 <Camera size={16} color="var(--accent)" />
               </div>
               <div>
-                <div className="profile-section-title">Logo</div>
-                <div className="profile-section-subtitle">Shown in the sidebar and on the login page</div>
+                <div className="profile-section-title">{t('Logo')}</div>
+                <div className="profile-section-subtitle">{t('Shown in the sidebar and on the login page')}</div>
               </div>
             </div>
             <div className="profile-section-body">
@@ -85,12 +86,12 @@ export default function BrandingPage() {
                   flexShrink: 0, border: '1px solid var(--border-color)',
                 }}>
                   {displayedLogo
-                    ? <img src={displayedLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={displayedLogo} alt={t("Logo")} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <Palette size={26} color="#fff" />}
                 </div>
                 <div>
                   <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => fileInputRef.current?.click()}>
-                    Choose Image
+                    {t('Choose Image')}
                   </button>
                   <input
                     ref={fileInputRef}
@@ -99,13 +100,13 @@ export default function BrandingPage() {
                     style={{ display: 'none' }}
                     onChange={handleLogoFileChange}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>PNG or JPG, up to 2MB</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>{t('PNG or JPG, up to 2MB')}</div>
                 </div>
               </div>
               {logoFile && (
                 <button className="btn-accent" onClick={handleLogoUpload} disabled={savingLogo}>
                   <Save size={14} />
-                  {savingLogo ? 'Uploading...' : 'Save Logo'}
+                  {savingLogo ? t('Uploading...') : t('Save Logo')}
                 </button>
               )}
             </div>
@@ -118,14 +119,14 @@ export default function BrandingPage() {
                 <Type size={16} color="var(--accent)" />
               </div>
               <div>
-                <div className="profile-section-title">App Name</div>
-                <div className="profile-section-subtitle">Replaces "Commandix" throughout the interface</div>
+                <div className="profile-section-title">{t('App Name')}</div>
+                <div className="profile-section-subtitle">{t('Replaces "Commandix" throughout the interface')}</div>
               </div>
             </div>
             <div className="profile-section-body">
               <form onSubmit={handleNameSubmit}>
                 <div className="mb-3">
-                  <label className="form-label">Name</label>
+                  <label className="form-label">{t('Name')}</label>
                   <input
                     className="form-control"
                     value={name}
@@ -136,7 +137,7 @@ export default function BrandingPage() {
                 </div>
                 <button type="submit" className="btn-accent" disabled={savingName}>
                   <Save size={14} />
-                  {savingName ? 'Saving...' : 'Save Name'}
+                  {savingName ? t('Saving...') : t('Save Name')}
                 </button>
               </form>
             </div>

@@ -4,11 +4,15 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import TaskModal from './TaskModal';
 import TaskDetailModal from './TaskDetailModal';
+import DueBadge from '../../components/common/DueBadge';
+import TaskFilters from '../../components/tasks/TaskFilters';
+import { EMPTY_FILTERS, filtersToParams } from '../../utils/taskFilters';
+import { t, formatDate, formatDateTime } from '../../i18n';
 
 const COLUMNS = [
-  { key: 'pending',     label: 'Pending',     icon: '⏳', color: '#f59e0b' },
-  { key: 'in_progress', label: 'In Progress', icon: '🔄', color: '#3b82f6' },
-  { key: 'completed',   label: 'Completed',   icon: '✅', color: '#10b981' },
+  { key: 'pending',     label: t('Pending'),     icon: '⏳', color: '#f59e0b' },
+  { key: 'in_progress', label: t('In Progress'), icon: '🔄', color: '#3b82f6' },
+  { key: 'completed',   label: t('Completed'),   icon: '✅', color: '#10b981' },
 ];
 
 export default function TasksPage() {
@@ -17,40 +21,45 @@ export default function TasksPage() {
   const [showModal, setShowModal]     = useState(false);
   const [editTask, setEditTask]       = useState(null);
   const [detailTaskId, setDetailTaskId] = useState(null);
-  const [search, setSearch]           = useState('');
+  const [filters, setFilters]         = useState(() => {
+    try { return { ...EMPTY_FILTERS, ...JSON.parse(localStorage.getItem('tasks.filters')) }; } catch { return EMPTY_FILTERS; }
+  });
   const [dragOverCol, setDragOverCol] = useState(null);   // column key being dragged over
   const dragTaskId = useRef(null);                         // id of task being dragged
   const { isAdminOrAbove, isManager } = useAuth();
 
   const fetchTasks = async () => {
     try {
-      const { data } = await api.get('/tasks', { params: { search, per_page: 100 } });
+      const { data } = await api.get('/tasks', { params: { ...filtersToParams(filters), per_page: 200 } });
       setTasks(data.data);
-    } catch { toast.error('Failed to load tasks'); }
+    } catch { toast.error(t('Failed to load tasks')); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchTasks(); }, [search]);
+  useEffect(() => {
+    fetchTasks();
+    try { localStorage.setItem('tasks.filters', JSON.stringify(filters)); } catch { /* storage unavailable */ }
+  }, [filters]);
 
   const updateStatus = async (taskId, status) => {
     // Optimistic update
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
     try {
       await api.put(`/tasks/${taskId}/status`, { status });
-      toast.success('Status updated');
+      toast.success(t('Status updated'));
     } catch {
-      toast.error('Failed to update status');
+      toast.error(t('Failed to update status'));
       fetchTasks(); // revert
     }
   };
 
   const deleteTask = async (taskId) => {
-    if (!confirm('Delete this task?')) return;
+    if (!confirm(t('Delete this task?'))) return;
     try {
       await api.delete(`/tasks/${taskId}`);
       setTasks(prev => prev.filter(t => t.id !== taskId));
-      toast.success('Task deleted');
-    } catch { toast.error('Failed to delete task'); }
+      toast.success(t('Task deleted'));
+    } catch { toast.error(t('Failed to delete task')); }
   };
 
   // ── Drag & Drop handlers ──────────────────────────────────────────────────
@@ -86,28 +95,20 @@ export default function TasksPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Tasks</h1>
-          <p className="page-subtitle">{tasks.length} total tasks</p>
+          <h1 className="page-title">{t('Tasks')}</h1>
+          <p className="page-subtitle">{tasks.length} {t('total tasks')}</p>
         </div>
         {(isAdminOrAbove() || isManager()) && (
           <button className="btn-accent" onClick={() => { setEditTask(null); setShowModal(true); }}>
-            + New Task
+            {t('+ New Task')}
           </button>
         )}
       </div>
 
-      <div className="mb-4">
-        <input
-          className="form-control"
-          style={{ maxWidth: 320 }}
-          placeholder="Search tasks..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
+      <TaskFilters filters={filters} onChange={setFilters} />
 
       {loading ? (
-        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>Loading tasks...</div>
+        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('Loading tasks...')}</div>
       ) : (
         <div className="kanban-board">
           {COLUMNS.map(col => (
@@ -138,13 +139,13 @@ export default function TasksPage() {
                     padding: '20px', textAlign: 'center',
                     fontSize: 13, color: col.color, opacity: 0.7,
                   }}>
-                    Drop here
+                    {t('Drop here')}
                   </div>
                 )}
 
                 {tasksByStatus(col.key).length === 0 && dragOverCol !== col.key && (
                   <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                    No tasks
+                    {t('No tasks')}
                   </div>
                 )}
 
@@ -197,16 +198,17 @@ function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart,
       onDragEnd={onDragEnd}
       onClick={onOpen}
       style={{ cursor: canMove ? 'grab' : 'pointer' }}
-      title={canMove ? 'Drag to move, or click to open' : 'Click to open'}
+      title={canMove ? t('Drag to move, or click to open') : t('Click to open')}
     >
       <div className="d-flex justify-content-between align-items-start mb-2">
         <div className="d-flex align-items-center gap-1">
           <span className={`badge badge-${task.priority}`} style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>
-            {task.priority}
+            {t(task.priority)}
           </span>
           {task.workflow_enabled && (
             <span style={{ fontSize: 10, background: '#6366f120', color: '#6366f1', padding: '2px 6px', borderRadius: 20 }}>🔄</span>
           )}
+          <DueBadge task={task} size="sm" />
         </div>
 
         {canEdit && (
@@ -220,20 +222,20 @@ function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart,
             <ul className="dropdown-menu dropdown-menu-end">
               <li>
                 <button className="dropdown-item" style={{ fontSize: 13 }} onClick={onOpen}>
-                  🔍 View Details
+                  {t('🔍 View Details')}
                 </button>
               </li>
               <li><hr className="dropdown-divider" /></li>
               {otherStats.map(s => (
                 <li key={s}>
                   <button className="dropdown-item" style={{ fontSize: 13 }} onClick={() => onStatusChange(task.id, s)}>
-                    Move → {s.replace('_', ' ')}
+                    {t('Move →')} {t(s.replace('_', ' '))}
                   </button>
                 </li>
               ))}
               <li><hr className="dropdown-divider" /></li>
-              <li><button className="dropdown-item" style={{ fontSize: 13 }} onClick={onEdit}>✏️ Edit</button></li>
-              <li><button className="dropdown-item text-danger" style={{ fontSize: 13 }} onClick={onDelete}>🗑️ Delete</button></li>
+              <li><button className="dropdown-item" style={{ fontSize: 13 }} onClick={onEdit}>{t('✏️ Edit')}</button></li>
+              <li><button className="dropdown-item text-danger" style={{ fontSize: 13 }} onClick={onDelete}>{t('🗑️ Delete')}</button></li>
             </ul>
           </div>
         )}
@@ -263,15 +265,15 @@ function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart,
           )}
         </div>
         {task.due_date && (
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            📅 {new Date(task.due_date).toLocaleDateString()}
+          <span style={{ fontSize: 11, color: task.is_overdue ? '#dc2626' : 'var(--text-secondary)', fontWeight: task.is_overdue ? 600 : 400 }}>
+            📅 {formatDate(task.due_date)}
           </span>
         )}
       </div>
 
       {task.attachments?.length > 0 && (
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
-          📎 {task.attachments.length} attachment{task.attachments.length > 1 ? 's' : ''}
+          📎 {t(task.attachments.length === 1 ? '{n} attachment' : '{n} attachments', { n: task.attachments.length })}
         </div>
       )}
     </div>

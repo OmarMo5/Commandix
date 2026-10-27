@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
+import { t } from '../../i18n';
 
 export default function GroupModal({ onClose, onSaved }) {
   const [title, setTitle]             = useState('');
@@ -23,7 +24,7 @@ export default function GroupModal({ onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (members.length === 0) {
-      toast.error('Add at least one member to the group.');
+      toast.error(t('Add at least one member to the group.'));
       return;
     }
     setLoading(true);
@@ -33,11 +34,11 @@ export default function GroupModal({ onClose, onSaved }) {
         description,
         assignees: members,
       });
-      toast.success('Group created');
+      toast.success(t('Group created'));
       onSaved();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create group');
+      toast.error(err.response?.data?.message || t('Failed to create group'));
     } finally {
       setLoading(false);
     }
@@ -48,28 +49,28 @@ export default function GroupModal({ onClose, onSaved }) {
       <div className="modal-dialog modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">🔒 New Private Group</h5>
+            <h5 className="modal-title">{t('🔒 New Private Group')}</h5>
             <button type="button" className="btn-close" onClick={onClose} />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, padding: '10px 12px', background: 'var(--bg-primary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
-                Only the people you add here can see this group or anything inside it — chat, checklist, files. No one else, no exceptions.
+                {t('Only the people you add here can see this group or anything inside it — chat, checklist, files. No one else, no exceptions.')}
               </div>
 
               <div className="mb-3">
-                <label className="form-label">Group Name *</label>
+                <label className="form-label">{t('Group Name *')}</label>
                 <input
                   className="form-control"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="e.g. Q3 Budget Review"
+                  placeholder={t("e.g. Q3 Budget Review")}
                   required
                 />
               </div>
 
               <div className="mb-3">
-                <label className="form-label">Description</label>
+                <label className="form-label">{t('Description')}</label>
                 <textarea
                   className="form-control"
                   rows={2}
@@ -79,16 +80,16 @@ export default function GroupModal({ onClose, onSaved }) {
               </div>
 
               <div className="mb-1">
-                <label className="form-label">Members * ({members.length} selected)</label>
+                <label className="form-label">{t('Members * (')}{members.length} {t('selected)')}</label>
                 <input
                   className="form-control form-control-sm mb-2"
-                  placeholder="Search people..."
+                  placeholder={t("Search people...")}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
                 <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
                   {filtered.length === 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '10px 0' }}>No matches.</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '10px 0' }}>{t('No matches.')}</div>
                   )}
                   {filtered.map(u => (
                     <div key={u.id} className="form-check d-flex align-items-center gap-2" style={{ marginBottom: 6 }}>
@@ -117,9 +118,9 @@ export default function GroupModal({ onClose, onSaved }) {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>{t('Cancel')}</button>
               <button type="submit" className="btn-accent" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Group'}
+                {loading ? t('Creating...') : t('Create Group')}
               </button>
             </div>
           </form>

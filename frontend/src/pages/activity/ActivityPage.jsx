@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
+import { t, formatDate, formatDateTime } from '../../i18n';
 
 const actionColors = {
   created: '#10b981',
@@ -30,7 +31,7 @@ export default function ActivityPage() {
       const { data } = await api.get('/activity-logs', { params: { page } });
       setLogs(data.data);
       setMeta(data);
-    } catch { toast.error('Failed to load activity logs'); }
+    } catch { toast.error(t('Failed to load activity logs')); }
     finally { setLoading(false); }
   };
 
@@ -40,26 +41,26 @@ export default function ActivityPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Activity Log</h1>
-          <p className="page-subtitle">{meta?.total || 0} records</p>
+          <h1 className="page-title">{t('Activity Log')}</h1>
+          <p className="page-subtitle">{meta?.total || 0} {t('records')}</p>
         </div>
       </div>
 
       <div className="card p-0" style={{ overflow: 'hidden' }}>
         {loading && (
-          <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+          <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</div>
         )}
         {!loading && logs.length === 0 && (
-          <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>No activity logs</div>
+          <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('No activity logs')}</div>
         )}
         <table className="table mb-0">
           <thead>
             <tr>
-              <th>User</th>
-              <th>Action</th>
-              <th>Model</th>
-              <th>IP</th>
-              <th>Time</th>
+              <th>{t('User')}</th>
+              <th>{t('Action')}</th>
+              <th>{t('Model')}</th>
+              <th>{t('IP')}</th>
+              <th>{t('Time')}</th>
             </tr>
           </thead>
           <tbody>
@@ -70,7 +71,7 @@ export default function ActivityPage() {
                     <div className="avatar" style={{ width: 28, height: 28, fontSize: 11 }}>
                       {log.user?.name?.slice(0, 2).toUpperCase() || '?'}
                     </div>
-                    <span style={{ fontSize: 13 }}>{log.user?.name || 'System'}</span>
+                    <span style={{ fontSize: 13 }}>{log.user?.name || t('System')}</span>
                   </div>
                 </td>
                 <td>
@@ -80,15 +81,15 @@ export default function ActivityPage() {
                     color: getColor(log.action),
                     fontWeight: 500,
                   }}>
-                    {log.action.replace(/_/g, ' ')}
+                    {t(log.action.replace(/_/g, ' '))}
                   </span>
                 </td>
                 <td style={{ fontSize: 13 }}>
-                  {log.model_type ? `${log.model_type} #${log.model_id}` : '—'}
+                  {log.model_type ? `${t(log.model_type)} #${log.model_id}` : '—'}
                 </td>
                 <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{log.ip_address || '—'}</td>
                 <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {new Date(log.created_at).toLocaleString()}
+                  {formatDateTime(log.created_at)}
                 </td>
               </tr>
             ))}
@@ -98,7 +99,7 @@ export default function ActivityPage() {
         {meta && meta.last_page > 1 && (
           <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              Showing {(page - 1) * 25 + 1}–{Math.min(page * 25, meta.total)} of {meta.total} records
+              {t('Showing')} {(page - 1) * 25 + 1}–{Math.min(page * 25, meta.total)} {t('of')} {meta.total} {t('records')}
             </span>
             <div className="d-flex gap-1">
               <button
@@ -106,7 +107,7 @@ export default function ActivityPage() {
                 disabled={page === 1}
                 style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 6, background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: 13 }}
               >
-                ← Prev
+                {t('← Prev')}
               </button>
 
               {/* Smart page numbers: show first, last, current±1, with ... */}
@@ -136,7 +137,7 @@ export default function ActivityPage() {
                 disabled={page === meta.last_page}
                 style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 6, background: 'none', cursor: page === meta.last_page ? 'not-allowed' : 'pointer', opacity: page === meta.last_page ? 0.4 : 1, fontSize: 13 }}
               >
-                Next →
+                {t('Next →')}
               </button>
             </div>
           </div>

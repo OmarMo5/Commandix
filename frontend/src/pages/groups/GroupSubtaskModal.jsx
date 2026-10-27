@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
+import { t } from '../../i18n';
 
 export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandidates, onClose, onSaved }) {
   const [title, setTitle]             = useState('');
@@ -22,7 +23,7 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (assignees.length === 0) {
-      toast.error('Assign this task to at least one group member.');
+      toast.error(t('Assign this task to at least one group member.'));
       return;
     }
     setLoading(true);
@@ -35,11 +36,11 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
         assignees,
         mentions,
       });
-      toast.success('Task created');
+      toast.success(t('Task created'));
       onSaved();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create task');
+      toast.error(err.response?.data?.message || t('Failed to create task'));
     } finally {
       setLoading(false);
     }
@@ -50,13 +51,13 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
       <div className="modal-dialog modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">📋 New Task in Group</h5>
+            <h5 className="modal-title">{t('📋 New Task in Group')}</h5>
             <button type="button" className="btn-close" onClick={onClose} />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="mb-3">
-                <label className="form-label">Title *</label>
+                <label className="form-label">{t('Title *')}</label>
                 <input
                   className="form-control"
                   value={title}
@@ -66,7 +67,7 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
               </div>
 
               <div className="mb-3">
-                <label className="form-label">Description</label>
+                <label className="form-label">{t('Description')}</label>
                 <textarea
                   className="form-control"
                   rows={2}
@@ -77,24 +78,24 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
 
               <div className="row g-3 mb-1">
                 <div className="col-6">
-                  <label className="form-label">Priority</label>
+                  <label className="form-label">{t('Priority')}</label>
                   <select className="form-select" value={priority} onChange={e => setPriority(e.target.value)}>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="low">{t('Low')}</option>
+                    <option value="medium">{t('Medium')}</option>
+                    <option value="high">{t('High')}</option>
                   </select>
                 </div>
                 <div className="col-6">
-                  <label className="form-label">Due Date</label>
+                  <label className="form-label">{t('Due Date')}</label>
                   <input type="date" className="form-control" value={dueDate}
                     onChange={e => setDueDate(e.target.value)} />
                 </div>
               </div>
 
               <div className="mb-1 mt-2">
-                <label className="form-label">Assign to ({assignees.length} selected)</label>
+                <label className="form-label">{t('Assign to (')}{assignees.length} {t('selected)')}</label>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  Only members of this group can be assigned.
+                  {t('Only members of this group can be assigned.')}
                 </div>
                 <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
                   {groupMembers.map(u => (
@@ -122,9 +123,9 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
 
               {mentionCandidates?.length > 0 && (
                 <div className="mb-1 mt-3">
-                  <label className="form-label">Mention (optional) ({mentions.length} selected)</label>
+                  <label className="form-label">{t('Mention (optional) (')}{mentions.length} {t('selected)')}</label>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Tag someone from the group to loop them in — doesn't have to be an assignee.
+                    {t("Tag someone from the group to loop them in — doesn't have to be an assignee.")}
                   </div>
                   <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
                     {mentionCandidates.map(u => (
@@ -152,9 +153,9 @@ export default function GroupSubtaskModal({ groupId, groupMembers, mentionCandid
               )}
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>{t('Cancel')}</button>
               <button type="submit" className="btn-accent" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Task'}
+                {loading ? t('Creating...') : t('Create Task')}
               </button>
             </div>
           </form>

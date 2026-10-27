@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import WorkflowSetup from './WorkflowSetup';
+import { t } from '../../i18n';
 
 export default function TaskModal({ task, onClose, onSaved }) {
   const [tab, setTab] = useState('details'); // 'details' | 'workflow'
@@ -32,9 +33,9 @@ export default function TaskModal({ task, onClose, onSaved }) {
     api.get('/departments/managers-list').then(r => setManagers(r.data || []));
     // eslint-disable-next-line
     // If editing a task with existing workflow, preload
-    if (task?.workflow_enabled && task?.workflowSteps?.length) {
+    if (task?.workflow_enabled && task?.workflow_steps?.length) {
       setEnableWorkflow(true);
-      setWorkflowSteps(task.workflowSteps.map(s => ({ user_id: s.user_id, name: s.user?.name || '' })));
+      setWorkflowSteps(task.workflow_steps.map(s => ({ user_id: s.user_id, name: s.user?.name || '' })));
     }
   }, []);
 
@@ -49,7 +50,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
     e.preventDefault();
 
     if (enableWorkflow && workflowSteps.length < 2) {
-      toast.error('Workflow needs at least 2 people. Add more or disable workflow.');
+      toast.error(t('Workflow needs at least 2 people. Add more or disable workflow.'));
       setTab('workflow');
       return;
     }
@@ -60,11 +61,11 @@ export default function TaskModal({ task, onClose, onSaved }) {
       if (task) {
         const { data } = await api.put(`/tasks/${task.id}`, form);
         savedTask = data;
-        toast.success('Task updated');
+        toast.success(t('Task updated'));
       } else {
         const { data } = await api.post('/tasks', form);
         savedTask = data;
-        toast.success('Task created');
+        toast.success(t('Task created'));
       }
 
       // Upload attachment
@@ -81,7 +82,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
         await api.post(`/tasks/${savedTask.id}/workflow`, {
           steps: workflowSteps.map(s => ({ user_id: s.user_id })),
         });
-        toast.success('Workflow chain saved & first person notified');
+        toast.success(t('Workflow chain saved & first person notified'));
       } else if (!enableWorkflow && task?.workflow_enabled) {
         // Remove workflow if it was disabled
         await api.delete(`/tasks/${savedTask.id}/workflow`);
@@ -90,7 +91,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
       onSaved();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save task');
+      toast.error(err.response?.data?.message || t('Failed to save task'));
     } finally {
       setLoading(false);
     }
@@ -114,16 +115,16 @@ export default function TaskModal({ task, onClose, onSaved }) {
         <div className="modal-content">
           <div className="modal-header" style={{ paddingBottom: 0, flexDirection: 'column', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
-              <h5 className="modal-title">{task ? 'Edit Task' : 'New Task'}</h5>
+              <h5 className="modal-title">{task ? t('Edit Task') : t('New Task')}</h5>
               <button type="button" className="btn-close" onClick={onClose} />
             </div>
             {/* Tabs */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', width: '100%' }}>
-              <button style={tabStyle('details')} onClick={() => setTab('details')}>📋 Details</button>
+              <button style={tabStyle('details')} onClick={() => setTab('details')}>{t('📋 Details')}</button>
               <button style={tabStyle('workflow')} onClick={() => setTab('workflow')}>
-                🔄 Workflow Chain
+                {t('🔄 Workflow Chain')}
                 {enableWorkflow && (
-                  <span style={{ marginLeft: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                  <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                     {workflowSteps.length}
                   </span>
                 )}
@@ -138,7 +139,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
               {tab === 'details' && (
                 <div className="row g-3">
                   <div className="col-12">
-                    <label className="form-label">Title *</label>
+                    <label className="form-label">{t('Title *')}</label>
                     <input
                       className="form-control"
                       value={form.title}
@@ -147,7 +148,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
                     />
                   </div>
                   <div className="col-12">
-                    <label className="form-label">Description</label>
+                    <label className="form-label">{t('Description')}</label>
                     <textarea
                       className="form-control"
                       rows={3}
@@ -156,59 +157,59 @@ export default function TaskModal({ task, onClose, onSaved }) {
                     />
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Priority</label>
+                    <label className="form-label">{t('Priority')}</label>
                     <select className="form-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
+                      <option value="low">{t('Low')}</option>
+                      <option value="medium">{t('Medium')}</option>
+                      <option value="high">{t('High')}</option>
                     </select>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Status</label>
+                    <label className="form-label">{t('Status')}</label>
                     <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
+                      <option value="pending">{t('Pending')}</option>
+                      <option value="in_progress">{t('In Progress')}</option>
+                      <option value="completed">{t('Completed')}</option>
                     </select>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Due Date</label>
+                    <label className="form-label">{t('Due Date')}</label>
                     <input type="date" className="form-control" value={form.due_date}
                       onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Department</label>
+                    <label className="form-label">{t('Department')}</label>
                     <select className="form-select" value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
-                      <option value="">No Department</option>
+                      <option value="">{t('No Department')}</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Attachment</label>
+                    <label className="form-label">{t('Attachment')}</label>
                     <input type="file" className="form-control"
                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
                       onChange={e => setAttachment(e.target.files[0])} />
                   </div>
 
                   <div className="col-md-6">
-                    <label className="form-label">Repeat</label>
+                    <label className="form-label">{t('Repeat')}</label>
                     <select className="form-select" value={form.recurrence} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}>
-                      <option value="">Does not repeat</option>
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
+                      <option value="">{t('Does not repeat')}</option>
+                      <option value="daily">{t('Daily')}</option>
+                      <option value="weekly">{t('Weekly')}</option>
+                      <option value="monthly">{t('Monthly')}</option>
                     </select>
                   </div>
                   {form.recurrence && (
                     <div className="col-md-6">
-                      <label className="form-label">Repeat Until (optional)</label>
+                      <label className="form-label">{t('Repeat Until (optional)')}</label>
                       <input type="date" className="form-control" value={form.recurrence_end_date}
                         onChange={e => setForm(f => ({ ...f, recurrence_end_date: e.target.value }))} />
                     </div>
                   )}
 
                   <div className="col-md-6">
-                    <label className="form-label">Assign To</label>
+                    <label className="form-label">{t('Assign To')}</label>
                     <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
                       {users.map(u => (
                         <div key={u.id} className="form-check" style={{ marginBottom: 4 }}>
@@ -221,13 +222,13 @@ export default function TaskModal({ task, onClose, onSaved }) {
                   </div>
 
                   <div className="col-md-6">
-                    <label className="form-label">Mention a Manager (@)</label>
+                    <label className="form-label">{t('Mention a Manager (@)')}</label>
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                      Loop in another department's manager — they'll be able to view this task, chat on it, and assign their own team.
+                      {t("Loop in another department's manager — they'll be able to view this task, chat on it, and assign their own team.")}
                     </div>
                     <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8, padding: 8 }}>
                       {managers.length === 0 && (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No other managers found.</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('No other managers found.')}</div>
                       )}
                       {managers.map(u => (
                         <div key={u.id} className="form-check" style={{ marginBottom: 4 }}>
@@ -260,9 +261,9 @@ export default function TaskModal({ task, onClose, onSaved }) {
                       />
                     </div>
                     <label htmlFor="wf-toggle" style={{ cursor: 'pointer' }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>Enable Sequential Workflow</div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{t('Enable Sequential Workflow')}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Task passes from person to person in order — each one gets notified when it's their turn.
+                        {t("Task passes from person to person in order — each one gets notified when it's their turn.")}
                       </div>
                     </label>
                   </div>
@@ -278,7 +279,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
                   {!enableWorkflow && (
                     <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-secondary)' }}>
                       <div style={{ fontSize: 40, marginBottom: 10 }}>🔄</div>
-                      <p style={{ fontSize: 14 }}>Enable workflow to set up a sequential chain of people.</p>
+                      <p style={{ fontSize: 14 }}>{t('Enable workflow to set up a sequential chain of people.')}</p>
                     </div>
                   )}
                 </div>
@@ -286,9 +287,9 @@ export default function TaskModal({ task, onClose, onSaved }) {
             </div>
 
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>{t('Cancel')}</button>
               <button type="submit" className="btn-accent" disabled={loading}>
-                {loading ? 'Saving...' : (task ? 'Update Task' : 'Create Task')}
+                {loading ? t('Saving...') : (task ? t('Update Task') : t('Create Task'))}
               </button>
             </div>
           </form>

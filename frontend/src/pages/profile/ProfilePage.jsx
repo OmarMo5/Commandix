@@ -3,11 +3,12 @@ import { toast } from 'react-toastify';
 import { User, Mail, Lock, Shield, Building2, Camera, Save, Key } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { t } from '../../i18n';
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '' });
-  const [pwdForm, setPwdForm] = useState({ password: '', password_confirmation: '' });
+  const [pwdForm, setPwdForm] = useState({ current_password: '', password: '', password_confirmation: '' });
   const [saving, setSaving] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
@@ -18,27 +19,29 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put(`/users/${user.id}`, form);
+      // Self-service endpoint — works for every role (the admin /users/:id one needs users.edit).
+      await api.put('/auth/profile', form);
       await refreshUser();
-      toast.success('Profile updated successfully');
+      toast.success(t('Profile updated successfully'));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update profile');
+      toast.error(err.response?.data?.message || t('Failed to update profile'));
     } finally { setSaving(false); }
   };
 
   const handlePassword = async (e) => {
     e.preventDefault();
     if (pwdForm.password !== pwdForm.password_confirmation) {
-      toast.error('Passwords do not match');
+      toast.error(t('Passwords do not match'));
       return;
     }
     setSavingPwd(true);
     try {
-      await api.put(`/users/${user.id}/password`, pwdForm);
-      toast.success('Password changed successfully');
-      setPwdForm({ password: '', password_confirmation: '' });
+      await api.put('/auth/password', pwdForm);
+      toast.success(t('Password changed successfully'));
+      setPwdForm({ current_password: '', password: '', password_confirmation: '' });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to change password');
+      const errors = err.response?.data?.errors;
+      toast.error((errors && Object.values(errors)[0]?.[0]) || err.response?.data?.message || t('Failed to change password'));
     } finally { setSavingPwd(false); }
   };
 
@@ -60,8 +63,8 @@ export default function ProfilePage() {
       await refreshUser();
       setAvatarFile(null);
       setAvatarPreview(null);
-      toast.success('Avatar updated');
-    } catch { toast.error('Failed to upload avatar'); }
+      toast.success(t('Avatar updated'));
+    } catch { toast.error(t('Failed to upload avatar')); }
   };
 
   const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
@@ -71,8 +74,8 @@ export default function ProfilePage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">My Profile</h1>
-          <p className="page-subtitle">Manage your account settings and preferences</p>
+          <h1 className="page-title">{t('My Profile')}</h1>
+          <p className="page-subtitle">{t('Manage your account settings and preferences')}</p>
         </div>
       </div>
 
@@ -85,7 +88,7 @@ export default function ProfilePage() {
 
             {/* Avatar + info */}
             <div style={{ paddingBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingRight: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', paddingInlineEnd: 20 }}>
                 <div className="profile-avatar-wrap">
                   <div className="profile-avatar-large">
                     {avatarSrc
@@ -96,7 +99,7 @@ export default function ProfilePage() {
                   <div
                     className="profile-avatar-upload"
                     onClick={() => fileInputRef.current?.click()}
-                    title="Change avatar"
+                    title={t("Change avatar")}
                   >
                     <Camera size={20} color="#fff" />
                   </div>
@@ -115,7 +118,7 @@ export default function ProfilePage() {
                     onClick={handleAvatarUpload}
                   >
                     <Save size={13} />
-                    Save
+                    {t('Save')}
                   </button>
                 )}
               </div>
@@ -127,7 +130,7 @@ export default function ProfilePage() {
                   {user?.role && (
                     <span className="profile-chip">
                       <Shield size={11} />
-                      {user.role.display_name}
+                      {t(user.role.display_name)}
                     </span>
                   )}
                   {user?.department && (
@@ -146,13 +149,13 @@ export default function ProfilePage() {
                   border: '1px solid var(--border-color)',
                 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
-                    Account Info
+                    {t('Account Info')}
                   </div>
                   {[
-                    { icon: User, label: 'Name', value: user?.name },
-                    { icon: Mail, label: 'Email', value: user?.email },
-                    { icon: Shield, label: 'Role', value: user?.role?.display_name || '—' },
-                    { icon: Building2, label: 'Dept', value: user?.department?.name || '—' },
+                    { icon: User, label: t('Name'), value: user?.name },
+                    { icon: Mail, label: t('Email'), value: user?.email },
+                    { icon: Shield, label: t('Role'), value: t(user?.role?.display_name) || '—' },
+                    { icon: Building2, label: t('Dept'), value: user?.department?.name || '—' },
                   ].map(({ icon: Icon, label, value }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                       <Icon size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -182,41 +185,41 @@ export default function ProfilePage() {
                   <User size={16} color="var(--accent)" />
                 </div>
                 <div>
-                  <div className="profile-section-title">Personal Information</div>
-                  <div className="profile-section-subtitle">Update your name and email address</div>
+                  <div className="profile-section-title">{t('Personal Information')}</div>
+                  <div className="profile-section-subtitle">{t('Update your name and email address')}</div>
                 </div>
               </div>
               <div className="profile-section-body">
                 <form onSubmit={handleProfile}>
                   <div className="row g-3 mb-4">
                     <div className="col-md-6">
-                      <label className="form-label">Full Name</label>
+                      <label className="form-label">{t('Full Name')}</label>
                       <div style={{ position: 'relative' }}>
                         <User size={15} style={{
-                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)',
                           color: 'var(--text-muted)', pointerEvents: 'none',
                         }} />
                         <input
                           className="form-control"
-                          style={{ paddingLeft: 36 }}
+                          style={{ paddingInlineStart: 36 }}
                           value={form.name}
                           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                          placeholder="Your full name"
+                          placeholder={t("Your full name")}
                           required
                         />
                       </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label">Email Address</label>
+                      <label className="form-label">{t('Email Address')}</label>
                       <div style={{ position: 'relative' }}>
                         <Mail size={15} style={{
-                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)',
                           color: 'var(--text-muted)', pointerEvents: 'none',
                         }} />
                         <input
                           type="email"
                           className="form-control"
-                          style={{ paddingLeft: 36 }}
+                          style={{ paddingInlineStart: 36 }}
                           value={form.email}
                           onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                           placeholder="your@email.com"
@@ -227,7 +230,7 @@ export default function ProfilePage() {
                   </div>
                   <button type="submit" className="btn-accent" disabled={saving}>
                     <Save size={14} />
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? t('Saving...') : t('Save Changes')}
                   </button>
                 </form>
               </div>
@@ -243,46 +246,65 @@ export default function ProfilePage() {
                   <Key size={16} color="var(--warning)" />
                 </div>
                 <div>
-                  <div className="profile-section-title">Security</div>
-                  <div className="profile-section-subtitle">Change your password to keep your account safe</div>
+                  <div className="profile-section-title">{t('Security')}</div>
+                  <div className="profile-section-subtitle">{t('Change your password to keep your account safe')}</div>
                 </div>
               </div>
               <div className="profile-section-body">
                 <form onSubmit={handlePassword}>
                   <div className="row g-3 mb-4">
-                    <div className="col-md-6">
-                      <label className="form-label">New Password</label>
+                    <div className="col-12">
+                      <label className="form-label">{t('Current Password')}</label>
                       <div style={{ position: 'relative' }}>
                         <Lock size={15} style={{
-                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)',
                           color: 'var(--text-muted)', pointerEvents: 'none',
                         }} />
                         <input
                           type="password"
                           className="form-control"
-                          style={{ paddingLeft: 36 }}
+                          style={{ paddingInlineStart: 36 }}
+                          value={pwdForm.current_password}
+                          onChange={e => setPwdForm(f => ({ ...f, current_password: e.target.value }))}
+                          placeholder={t("Your current password")}
+                          autoComplete="current-password"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">{t('New Password')}</label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={15} style={{
+                          position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--text-muted)', pointerEvents: 'none',
+                        }} />
+                        <input
+                          type="password"
+                          className="form-control"
+                          style={{ paddingInlineStart: 36 }}
                           value={pwdForm.password}
                           onChange={e => setPwdForm(f => ({ ...f, password: e.target.value }))}
-                          placeholder="At least 8 characters"
+                          placeholder={t("At least 8 characters")}
                           required
                           minLength={8}
                         />
                       </div>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label">Confirm New Password</label>
+                      <label className="form-label">{t('Confirm New Password')}</label>
                       <div style={{ position: 'relative' }}>
                         <Lock size={15} style={{
-                          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                          position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)',
                           color: 'var(--text-muted)', pointerEvents: 'none',
                         }} />
                         <input
                           type="password"
                           className="form-control"
-                          style={{ paddingLeft: 36 }}
+                          style={{ paddingInlineStart: 36 }}
                           value={pwdForm.password_confirmation}
                           onChange={e => setPwdForm(f => ({ ...f, password_confirmation: e.target.value }))}
-                          placeholder="Repeat new password"
+                          placeholder={t("Repeat new password")}
                           required
                         />
                       </div>
@@ -300,7 +322,7 @@ export default function ProfilePage() {
                   }}>
                     <Shield size={14} color="var(--info)" style={{ flexShrink: 0, marginTop: 1 }} />
                     <div style={{ fontSize: 12, color: 'var(--info)' }}>
-                      Use at least 8 characters with a mix of letters, numbers and symbols for a strong password.
+                      {t('Use at least 8 characters with a mix of letters, numbers and symbols for a strong password.')}
                     </div>
                   </div>
 
@@ -308,7 +330,7 @@ export default function ProfilePage() {
                     style={{ background: 'linear-gradient(135deg,#f59e0b,#f97316)', boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}
                   >
                     <Key size={14} />
-                    {savingPwd ? 'Changing...' : 'Change Password'}
+                    {savingPwd ? t('Changing...') : t('Change Password')}
                   </button>
                 </form>
               </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t } from '../../i18n';
 
 /**
  * WorkflowSetup — lets admin/manager drag-order people into a workflow chain.
@@ -44,7 +45,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
       {steps.length > 0 && (
         <div className="mb-3">
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-            Workflow order — task passes from top to bottom:
+            {t('Workflow order — task passes from top to bottom:')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {steps.map((step, idx) => (
@@ -66,7 +67,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                 {/* Arrow connector */}
                 {idx > 0 && (
                   <div style={{
-                    position: 'absolute', left: 23, top: -10,
+                    position: 'absolute', insetInlineStart: 23, top: -10,
                     width: 2, height: 10, background: 'var(--accent)',
                   }} />
                 )}
@@ -99,7 +100,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                   {i < steps.length - 1 && <span style={{ margin: '0 6px', color: 'var(--text-secondary)' }}>→</span>}
                 </span>
               ))}
-              <span style={{ marginLeft: 6, color: '#10b981' }}>✓ Done</span>
+              <span style={{ marginInlineStart: 6, color: '#10b981' }}>{t('✓ Done')}</span>
             </div>
           )}
         </div>
@@ -107,23 +108,23 @@ export default function WorkflowSetup({ users, steps, onChange }) {
 
       {steps.length < 2 && (
         <div style={{ fontSize: 12, color: '#f59e0b', marginBottom: 8, padding: '6px 10px', background: '#fef3c720', borderRadius: 6 }}>
-          ⚠️ Workflow needs at least 2 people.
+          {t('⚠️ Workflow needs at least 2 people.')}
         </div>
       )}
 
       {/* Add users */}
       <div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Add people to the chain:</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{t('Add people to the chain:')}</div>
         <input
           className="form-control form-control-sm mb-2"
-          placeholder="Search users..."
+          placeholder={t("Search users...")}
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
         <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 8 }}>
           {available.length === 0 && (
             <div style={{ padding: '12px', fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>
-              {users.length === 0 ? 'No users available' : 'All users added'}
+              {users.length === 0 ? t('No users available') : t('All users added')}
             </div>
           )}
           {available.map(u => (
@@ -142,7 +143,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                 {u.name?.slice(0, 2).toUpperCase()}
               </div>
               <span>{u.name}</span>
-              <span style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: 16 }}>+</span>
+              <span style={{ marginInlineStart: 'auto', color: 'var(--accent)', fontSize: 16 }}>+</span>
             </div>
           ))}
         </div>

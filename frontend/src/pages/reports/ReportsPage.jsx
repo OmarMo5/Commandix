@@ -7,6 +7,7 @@ import {
 import { Download, TrendingUp, Building2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useTheme } from '../../context/ThemeContext';
+import { t, isRTL } from '../../i18n';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -24,7 +25,7 @@ export default function ReportsPage() {
       const { data: res } = await api.get('/reports/performance', { params: filters });
       setData(res);
     } catch {
-      toast.error('Failed to load report');
+      toast.error(t('Failed to load report'));
     } finally {
       setLoading(false);
     }
@@ -48,9 +49,9 @@ export default function ReportsPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success('Report exported');
+      toast.success(t('Report exported'));
     } catch {
-      toast.error('Failed to export report');
+      toast.error(t('Failed to export report'));
     } finally {
       setExporting(false);
     }
@@ -62,7 +63,7 @@ export default function ReportsPage() {
   const departmentChartData = {
     labels: data?.departments?.map(d => d.name) || [],
     datasets: [{
-      label: 'Completion Rate (%)',
+      label: t('Completion Rate (%)'),
       data: data?.departments?.map(d => d.completion_rate) || [],
       backgroundColor: '#6366f1',
       borderRadius: 8,
@@ -72,16 +73,17 @@ export default function ReportsPage() {
 
   const barOptions = {
     plugins: {
-      legend: { display: false },
+      legend: { display: false, rtl: isRTL },
       tooltip: {
+        rtl: isRTL, textDirection: isRTL ? 'rtl' : 'ltr',
         backgroundColor: dark ? '#1a2234' : '#fff', titleColor: chartTextColor, bodyColor: chartTextColor,
         borderColor: dark ? '#1e2a3a' : '#e2e8f0', borderWidth: 1,
-        callbacks: { label: (ctx) => `${ctx.parsed.y}% completed` },
+        callbacks: { label: (ctx) => t('{n}% completed', { n: ctx.parsed.y }) },
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: chartTextColor, font: { size: 12 } }, border: { display: false } },
-      y: { beginAtZero: true, max: 100, grid: { color: chartGridColor }, ticks: { color: chartTextColor, font: { size: 12 }, callback: (v) => v + '%' }, border: { display: false } },
+      x: { reverse: isRTL, grid: { display: false }, ticks: { color: chartTextColor, font: { size: 12 } }, border: { display: false } },
+      y: { position: isRTL ? 'right' : 'left', beginAtZero: true, max: 100, grid: { color: chartGridColor }, ticks: { color: chartTextColor, font: { size: 12 }, callback: (v) => v + '%' }, border: { display: false } },
     },
     maintainAspectRatio: true,
   };
@@ -90,12 +92,12 @@ export default function ReportsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Team performance and completion rates</p>
+          <h1 className="page-title">{t('Reports')}</h1>
+          <p className="page-subtitle">{t('Team performance and completion rates')}</p>
         </div>
         <button className="btn-accent" onClick={handleExport} disabled={exporting}>
           <Download size={16} />
-          {exporting ? 'Exporting...' : 'Export CSV'}
+          {exporting ? t('Exporting...') : t('Export CSV')}
         </button>
       </div>
 
@@ -103,33 +105,33 @@ export default function ReportsPage() {
       <div className="card mb-4" style={{ padding: 16 }}>
         <div className="row g-3">
           <div className="col-md-4">
-            <label className="form-label">Department</label>
+            <label className="form-label">{t('Department')}</label>
             <select className="form-select" value={filters.department_id} onChange={e => setFilters(f => ({ ...f, department_id: e.target.value }))}>
-              <option value="">All Departments</option>
+              <option value="">{t('All Departments')}</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
           <div className="col-md-4">
-            <label className="form-label">From</label>
+            <label className="form-label">{t('From')}</label>
             <input type="date" className="form-control" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
           </div>
           <div className="col-md-4">
-            <label className="form-label">To</label>
+            <label className="form-label">{t('To')}</label>
             <input type="date" className="form-control" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>Loading report...</div>
+        <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>{t('Loading report...')}</div>
       ) : (
         <>
           {/* Department completion chart */}
           <div className="chart-card mb-4">
             <div className="chart-card-header">
               <div>
-                <div className="chart-card-title">Completion Rate by Department</div>
-                <div className="chart-card-subtitle">Percentage of tasks completed</div>
+                <div className="chart-card-title">{t('Completion Rate by Department')}</div>
+                <div className="chart-card-subtitle">{t('Percentage of tasks completed')}</div>
               </div>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Building2 size={16} color="var(--accent)" />
@@ -138,7 +140,7 @@ export default function ReportsPage() {
             <div className="chart-card-body" style={{ maxHeight: 300 }}>
               {data?.departments?.length > 0
                 ? <Bar data={departmentChartData} options={barOptions} />
-                : <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>No task data yet</div>}
+                : <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>{t('No task data yet')}</div>}
             </div>
           </div>
 
@@ -146,26 +148,26 @@ export default function ReportsPage() {
           <div className="table-card">
             <div className="table-card-header">
               <span className="table-card-title">
-                <TrendingUp size={15} style={{ marginRight: 6, verticalAlign: -2 }} />
-                Employee Performance
+                <TrendingUp size={15} style={{ marginInlineEnd: 6, verticalAlign: -2 }} />
+                {t('Employee Performance')}
               </span>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table className="table mb-0">
                 <thead>
                   <tr>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Assigned</th>
-                    <th>Completed</th>
-                    <th>Completion Rate</th>
+                    <th>{t('Employee')}</th>
+                    <th>{t('Department')}</th>
+                    <th>{t('Assigned')}</th>
+                    <th>{t('Completed')}</th>
+                    <th>{t('Completion Rate')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(!data?.employees || data.employees.length === 0) && (
                     <tr>
                       <td colSpan={5} style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--text-muted)' }}>
-                        No assigned tasks in this range
+                        {t('No assigned tasks in this range')}
                       </td>
                     </tr>
                   )}
@@ -180,7 +182,7 @@ export default function ReportsPage() {
                           <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--bg-primary)', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${e.completion_rate}%`, background: 'var(--accent-gradient)' }} />
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: 'right' }}>{e.completion_rate}%</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: 'end' }}>{e.completion_rate}%</span>
                         </div>
                       </td>
                     </tr>

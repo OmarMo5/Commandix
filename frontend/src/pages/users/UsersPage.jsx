@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { t } from '../../i18n';
 
 export default function UsersPage() {
   const { isSuperAdmin } = useAuth();
@@ -23,7 +24,7 @@ export default function UsersPage() {
       const { data } = await api.get('/users', { params: { search, page } });
       setUsers(data.data);
       setMeta(data);
-    } catch { toast.error('Failed to load users'); }
+    } catch { toast.error(t('Failed to load users')); }
     finally { setLoading(false); }
   };
 
@@ -52,25 +53,25 @@ export default function UsersPage() {
       if (!payload.password) delete payload.password;
       if (edit) {
         await api.put(`/users/${edit.id}`, payload);
-        toast.success('User updated');
+        toast.success(t('User updated'));
       } else {
         await api.post('/users', payload);
-        toast.success('User created');
+        toast.success(t('User created'));
       }
       setShowModal(false);
       fetchUsers();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(err.response?.data?.message || t('Failed to save'));
     } finally { setSaving(false); }
   };
 
   const deleteUser = async (id) => {
-    if (!confirm('Delete this user?')) return;
+    if (!confirm(t('Delete this user?'))) return;
     try {
       await api.delete(`/users/${id}`);
-      toast.success('User deleted');
+      toast.success(t('User deleted'));
       fetchUsers();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('Failed to delete')); }
   };
 
   const toggleActive = async (user) => {
@@ -78,24 +79,24 @@ export default function UsersPage() {
       await api.put(`/users/${user.id}`, { is_active: !user.is_active });
       toast.success(`User ${user.is_active ? 'deactivated' : 'activated'}`);
       fetchUsers();
-    } catch { toast.error('Failed to update'); }
+    } catch { toast.error(t('Failed to update')); }
   };
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Users</h1>
-          <p className="page-subtitle">{meta?.total || 0} total users</p>
+          <h1 className="page-title">{t('Users')}</h1>
+          <p className="page-subtitle">{meta?.total || 0} {t('total users')}</p>
         </div>
-        <button className="btn-accent" onClick={() => openModal()}>+ Add User</button>
+        <button className="btn-accent" onClick={() => openModal()}>{t('+ Add User')}</button>
       </div>
 
       <div className="mb-4">
         <input
           className="form-control"
           style={{ maxWidth: 320 }}
-          placeholder="Search users..."
+          placeholder={t("Search users...")}
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
         />
@@ -105,19 +106,19 @@ export default function UsersPage() {
         <table className="table mb-0">
           <thead>
             <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Department</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>{t('User')}</th>
+              <th>{t('Role')}</th>
+              <th>{t('Department')}</th>
+              <th>{t('Status')}</th>
+              <th>{t('Actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={5} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>Loading...</td></tr>
+              <tr><td colSpan={5} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('Loading...')}</td></tr>
             )}
             {!loading && users.length === 0 && (
-              <tr><td colSpan={5} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>No users found</td></tr>
+              <tr><td colSpan={5} className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>{t('No users found')}</td></tr>
             )}
             {users.map(u => (
               <tr key={u.id}>
@@ -136,7 +137,7 @@ export default function UsersPage() {
                 <td>
                   {u.role ? (
                     <span style={{ fontSize: 12, background: 'var(--accent)20', color: 'var(--accent)', padding: '2px 10px', borderRadius: 20 }}>
-                      {u.role.display_name}
+                      {t(u.role.display_name)}
                     </span>
                   ) : <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>—</span>}
                 </td>
@@ -149,7 +150,7 @@ export default function UsersPage() {
                       color: u.is_active ? '#059669' : '#dc2626',
                     }}
                   >
-                    {u.is_active ? 'Active' : 'Inactive'}
+                    {u.is_active ? t('Active') : t('Inactive')}
                   </span>
                 </td>
                 <td>
@@ -187,45 +188,45 @@ export default function UsersPage() {
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">{edit ? 'Edit User' : 'New User'}</h5>
+                <h5 className="modal-title">{edit ? t('Edit User') : t('New User')}</h5>
                 <button className="btn-close" onClick={() => setShowModal(false)} />
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Name *</label>
+                    <label className="form-label">{t('Name *')}</label>
                     <input className="form-control" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Email *</label>
+                    <label className="form-label">{t('Email *')}</label>
                     <input type="email" className="form-control" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Password {edit ? '(leave blank to keep)' : '*'}</label>
+                    <label className="form-label">{t('Password')} {edit ? t('(leave blank to keep)') : '*'}</label>
                     <input type="password" className="form-control" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required={!edit} />
                   </div>
                   <div className="row g-2">
                     <div className="col-6">
-                      <label className="form-label">Role</label>
+                      <label className="form-label">{t('Role')}</label>
                       <select className="form-select" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: e.target.value }))}>
-                        <option value="">No Role</option>
+                        <option value="">{t('No Role')}</option>
                         {roles
                           .filter(r => isSuperAdmin() || !['admin', 'super_admin'].includes(r.name))
-                          .map(r => <option key={r.id} value={r.id}>{r.display_name}</option>)}
+                          .map(r => <option key={r.id} value={r.id}>{t(r.display_name)}</option>)}
                       </select>
                     </div>
                     <div className="col-6">
-                      <label className="form-label">Department</label>
+                      <label className="form-label">{t('Department')}</label>
                       <select className="form-select" value={form.department_id} onChange={e => setForm(f => ({ ...f, department_id: e.target.value }))}>
-                        <option value="">No Department</option>
+                        <option value="">{t('No Department')}</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                       </select>
                     </div>
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-accent" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{t('Cancel')}</button>
+                  <button type="submit" className="btn-accent" disabled={saving}>{saving ? t('Saving...') : t('Save')}</button>
                 </div>
               </form>
             </div>

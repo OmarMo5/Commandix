@@ -110,12 +110,12 @@ body {
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0; left: 0;
+  top: 0; inset-inline-start: 0;
   height: 100vh;
   z-index: 100;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-x: hidden;
-  border-right: 1px solid rgba(255,255,255,0.04);
+  border-inline-end: 1px solid rgba(255,255,255,0.04);
 }
 .sidebar.collapsed { width: 72px; }
 
@@ -227,13 +227,13 @@ body {
    ============================================= */
 .main-content {
   flex: 1;
-  margin-left: var(--sidebar-width);
+  margin-inline-start: var(--sidebar-width);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: margin-inline-start 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.main-content.sidebar-collapsed { margin-left: 72px; }
+.main-content.sidebar-collapsed { margin-inline-start: 72px; }
 
 /* =============================================
    TOPBAR
@@ -289,12 +289,12 @@ body {
   background: var(--bg-primary);
   border-color: var(--border-color);
 }
-.topbar-user-info { text-align: left; }
+.topbar-user-info { text-align: start; }
 .topbar-user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
 .topbar-user-role { font-size: 11px; color: var(--text-secondary); }
 
 .notif-dot {
-  position: absolute; top: 4px; right: 4px;
+  position: absolute; top: 4px; inset-inline-end: 4px;
   background: var(--danger); color: #fff;
   font-size: 9px; font-weight: 700; border-radius: var(--radius-full);
   width: 16px; height: 16px;
@@ -717,7 +717,7 @@ body {
   justify-content: space-between;
   padding: 48px 52px;
   color: #fff;
-  border-right: 1px solid rgba(255,255,255,0.06);
+  border-inline-end: 1px solid rgba(255,255,255,0.06);
   background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 40%);
   z-index: 1;
 }
@@ -865,7 +865,7 @@ body {
   position: relative;
   display: inline-block;
   margin-top: -48px;
-  margin-left: 28px;
+  margin-inline-start: 28px;
 }
 .profile-avatar-large {
   width: 96px; height: 96px;
@@ -942,8 +942,9 @@ body {
    ============================================= */
 @media (max-width: 768px) {
   .sidebar { transform: translateX(-100%); transition: transform 0.25s; }
-  .sidebar.mobile-open { transform: translateX(0); }
-  .main-content { margin-left: 0 !important; }
+  [dir="rtl"] .sidebar { transform: translateX(100%); }
+  .sidebar.mobile-open { transform: translateX(0) !important; }
+  .main-content { margin-inline-start: 0 !important; }
   .kanban-board { grid-template-columns: 1fr; }
   .page-content { padding: 18px; }
 }
@@ -954,3 +955,62 @@ body {
   .auth-form-panel { padding: 40px 30px; }
   .auth-page { padding: 24px 16px; }
 }
+
+/* Equal-width stat columns: don't let a card's badge push its column wider than its siblings. */
+.stat-col { min-width: 0; }
+
+/* Unread badge on a sidebar item (becomes a dot when the sidebar is collapsed) */
+.nav-item { position: relative; }
+.nav-badge {
+  margin-inline-start: auto;
+  background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sidebar.collapsed .nav-item span.nav-badge {
+  display: block; position: absolute; top: 6px; inset-inline-end: 8px;
+  min-width: 9px; width: 9px; height: 9px; padding: 0;
+}
+.unread-pill {
+  background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 999px; padding: 2px 7px; line-height: 1.2;
+}
+
+/* @mention suggestions above the message box */
+.mention-menu {
+  position: absolute; inset-inline-start: 0; bottom: calc(100% + 4px);
+  min-width: 220px; max-width: 100%; margin: 0; padding: 4px; list-style: none;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  z-index: 1200;
+}
+.mention-menu li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  font-size: 13px; border-radius: 6px; cursor: pointer;
+}
+.mention-menu li.active { background: var(--accent-light); color: var(--accent); }
+.mention-chip { background: var(--accent-light); color: var(--accent); border-radius: 6px; padding: 0 3px; font-weight: 600; }
+.seen-by { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+
+/* ============================================= RTL / Arabic ============================================= */
+[dir="rtl"] body,
+[dir="rtl"] input, [dir="rtl"] textarea, [dir="rtl"] select, [dir="rtl"] button {
+  font-family: 'Segoe UI', Tahoma, 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
+}
+[dir="rtl"] .flip-rtl { transform: scaleX(-1); }
+/* Email / URLs / numbers stay left-to-right inside Arabic forms */
+[dir="rtl"] input[type="email"], [dir="rtl"] input[type="password"], [dir="rtl"] input[type="url"] { direction: ltr; text-align: right; }
+[dir="rtl"] input[type="email"]::placeholder, [dir="rtl"] input[type="password"]::placeholder { text-align: right; }
+
+.topbar-lang-btn { width: auto; padding: 0 10px; gap: 6px; font-size: 12px; font-weight: 700; }
+
+.auth-form-panel { position: relative; }
+.auth-lang-btn {
+  position: absolute; top: 14px; inset-inline-end: 14px;
+  background: rgba(255,255,255,0.06); color: #c3cde0;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 999px;
+  font-size: 12px; font-weight: 600; padding: 5px 14px; cursor: pointer;
+}
+.auth-lang-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }

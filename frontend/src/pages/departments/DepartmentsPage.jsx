@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import { t } from '../../i18n';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState([]);
@@ -20,7 +21,7 @@ export default function DepartmentsPage() {
       setDepartments(data);
       // auto-expand single dept (employee/manager view)
       if (data.length === 1) setExpanded({ [data[0].id]: true });
-    } catch { toast.error('Failed to load departments'); }
+    } catch { toast.error(t('Failed to load departments')); }
     finally { setLoading(false); }
   };
 
@@ -36,17 +37,17 @@ export default function DepartmentsPage() {
     setExpanded(p => ({ ...p, [id]: !p[id] }));
 
   const deleteDept = async (id) => {
-    if (!confirm('Delete this department? Users in it will become unassigned.')) return;
+    if (!confirm(t('Delete this department? Users in it will become unassigned.'))) return;
     try {
       await api.delete(`/departments/${id}`);
-      toast.success('Department deleted');
+      toast.success(t('Department deleted'));
       fetchDepts();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('Failed to delete')); }
   };
 
   if (loading) return (
     <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>
-      Loading departments...
+      {t('Loading departments...')}
     </div>
   );
 
@@ -55,9 +56,9 @@ export default function DepartmentsPage() {
       {/* Page header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Departments</h1>
+          <h1 className="page-title">{t('Departments')}</h1>
           <p className="page-subtitle">
-            {departments.length} department{departments.length !== 1 ? 's' : ''}
+            {departments.length} {t('department')}{departments.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="d-flex gap-2">
@@ -67,12 +68,12 @@ export default function DepartmentsPage() {
               style={{ fontSize: 13 }}
               onClick={() => setShowMsgModal(true)}
             >
-              ✉️ Message a Manager
+              {t('✉️ Message a Manager')}
             </button>
           )}
           {isAdminOrAbove() && (
             <button className="btn-accent" onClick={() => { setEditDept(null); setShowDeptModal(true); }}>
-              + Add Department
+              {t('+ Add Department')}
             </button>
           )}
         </div>
@@ -81,7 +82,7 @@ export default function DepartmentsPage() {
       {departments.length === 0 ? (
         <div className="text-center p-5" style={{ color: 'var(--text-secondary)' }}>
           <div style={{ fontSize: 52, marginBottom: 12 }}>🏢</div>
-          <p style={{ fontSize: 15 }}>No departments yet.</p>
+          <p style={{ fontSize: 15 }}>{t('No departments yet.')}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -134,7 +135,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
       className="card"
       style={{
         padding: 0, overflow: 'hidden',
-        borderLeft: isMyDept ? '3px solid var(--accent)' : '1px solid var(--border-color)',
+        borderInlineStart: isMyDept ? '3px solid var(--accent)' : '1px solid var(--border-color)',
       }}
     >
       {/* ── Header row ── */}
@@ -167,12 +168,12 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                 background: 'var(--accent)20', color: 'var(--accent)',
               }}>
-                Your Department
+                {t('Your Department')}
               </span>
             )}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
-            {manager ? `👤 ${manager.name}` : '👤 No manager'} · {members.length} member{members.length !== 1 ? 's' : ''} · {dept.tasks_count ?? 0} tasks
+            {manager ? `👤 ${manager.name}` : t('👤 No manager')} · {members.length} {t('member')}{members.length !== 1 ? 's' : ''} · {dept.tasks_count ?? 0} {t('tasks')}
           </div>
         </div>
 
@@ -185,8 +186,8 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                 data-bs-toggle="dropdown"
               >⋮</button>
               <ul className="dropdown-menu dropdown-menu-end">
-                <li><button className="dropdown-item" onClick={onEdit}>✏️ Edit</button></li>
-                <li><button className="dropdown-item text-danger" onClick={onDelete}>🗑️ Delete</button></li>
+                <li><button className="dropdown-item" onClick={onEdit}>{t('✏️ Edit')}</button></li>
+                <li><button className="dropdown-item text-danger" onClick={onDelete}>{t('🗑️ Delete')}</button></li>
               </ul>
             </div>
           )}
@@ -206,7 +207,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
           <div className="row g-4">
             {/* Manager block */}
             <div className="col-md-4">
-              <SectionLabel>Manager</SectionLabel>
+              <SectionLabel>{t('Manager')}</SectionLabel>
               {manager ? (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -217,7 +218,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>
                       {manager.name}
-                      {manager.id === currentUserId && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--accent)' }}>You</span>}
+                      {manager.id === currentUserId && <span style={{ marginInlineStart: 6, fontSize: 11, color: 'var(--accent)' }}>{t('You')}</span>}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{manager.email}</div>
                     <span style={{
@@ -225,7 +226,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                       fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
                       background: '#6366f120', color: '#6366f1',
                     }}>
-                      Manager
+                      {t('Manager')}
                     </span>
                   </div>
                 </div>
@@ -235,21 +236,21 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                   background: 'var(--bg-primary)', border: '1px dashed var(--border-color)',
                   fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center',
                 }}>
-                  No manager assigned
+                  {t('No manager assigned')}
                 </div>
               )}
             </div>
 
             {/* Members block */}
             <div className="col-md-8">
-              <SectionLabel>Team Members ({members.length})</SectionLabel>
+              <SectionLabel>{t('Team Members (')}{members.length})</SectionLabel>
               {members.length === 0 ? (
                 <div style={{
                   padding: '14px', borderRadius: 12,
                   background: 'var(--bg-primary)', border: '1px dashed var(--border-color)',
                   fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center',
                 }}>
-                  No members yet. Assign users to this department from the Users page.
+                  {t('No members yet. Assign users to this department from the Users page.')}
                 </div>
               ) : (
                 <div style={{
@@ -289,13 +290,13 @@ function MemberCard({ member, isMe }) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {member.name}
-          {isMe && <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--accent)' }}>You</span>}
+          {isMe && <span style={{ marginInlineStart: 4, fontSize: 10, color: 'var(--accent)' }}>{t('You')}</span>}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-          {member.role?.display_name || 'Employee'}
+          {t(member.role?.display_name) || t('Employee')}
         </div>
         {member.is_active === false && (
-          <span style={{ fontSize: 10, color: '#ef4444' }}>Inactive</span>
+          <span style={{ fontSize: 10, color: '#ef4444' }}>{t('Inactive')}</span>
         )}
       </div>
     </div>
@@ -320,15 +321,15 @@ function DeptFormModal({ dept, users, onClose, onSaved }) {
     try {
       if (dept) {
         await api.put(`/departments/${dept.id}`, form);
-        toast.success('Department updated');
+        toast.success(t('Department updated'));
       } else {
         await api.post('/departments', form);
-        toast.success('Department created');
+        toast.success(t('Department created'));
       }
       onSaved();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(err.response?.data?.message || t('Failed to save'));
     } finally { setSaving(false); }
   };
 
@@ -337,13 +338,13 @@ function DeptFormModal({ dept, users, onClose, onSaved }) {
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">{dept ? 'Edit Department' : 'New Department'}</h5>
+            <h5 className="modal-title">{dept ? t('Edit Department') : t('New Department')}</h5>
             <button className="btn-close" onClick={onClose} />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="mb-3">
-                <label className="form-label">Name *</label>
+                <label className="form-label">{t('Name *')}</label>
                 <input
                   className="form-control"
                   value={form.name}
@@ -352,7 +353,7 @@ function DeptFormModal({ dept, users, onClose, onSaved }) {
                 />
               </div>
               <div className="mb-3">
-                <label className="form-label">Description</label>
+                <label className="form-label">{t('Description')}</label>
                 <textarea
                   className="form-control" rows={2}
                   value={form.description}
@@ -360,26 +361,26 @@ function DeptFormModal({ dept, users, onClose, onSaved }) {
                 />
               </div>
               <div className="mb-3">
-                <label className="form-label">Manager</label>
+                <label className="form-label">{t('Manager')}</label>
                 <select
                   className="form-select"
                   value={form.manager_id}
                   onChange={e => setForm(f => ({ ...f, manager_id: e.target.value }))}
                 >
-                  <option value="">— No Manager —</option>
+                  <option value="">{t('— No Manager —')}</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                  Selecting a manager will also assign them to this department.
+                  {t('Selecting a manager will also assign them to this department.')}
                 </div>
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>{t('Cancel')}</button>
               <button type="submit" className="btn-accent" disabled={saving}>
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? t('Saving...') : t('Save')}
               </button>
             </div>
           </form>
@@ -408,8 +409,8 @@ function MessageManagerModal({ onClose }) {
   }, []);
 
   const handleSend = async () => {
-    if (!selected) { toast.error('Please select a manager'); return; }
-    if (!message.trim()) { toast.error('Please write a message'); return; }
+    if (!selected) { toast.error(t('Please select a manager')); return; }
+    if (!message.trim()) { toast.error(t('Please write a message')); return; }
     setSending(true);
     try {
       const { data } = await api.post('/departments/message-manager', {
@@ -419,7 +420,7 @@ function MessageManagerModal({ onClose }) {
       toast.success(data.message);
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send');
+      toast.error(err.response?.data?.message || t('Failed to send'));
     } finally { setSending(false); }
   };
 
@@ -430,25 +431,25 @@ function MessageManagerModal({ onClose }) {
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">✉️ Message a Manager</h5>
+            <h5 className="modal-title">{t('✉️ Message a Manager')}</h5>
             <button className="btn-close" onClick={onClose} />
           </div>
 
           <div className="modal-body">
             {loadingMgr ? (
               <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>
-                Loading managers...
+                {t('Loading managers...')}
               </div>
             ) : managers.length === 0 ? (
               <div className="text-center p-4" style={{ color: 'var(--text-secondary)' }}>
                 <div style={{ fontSize: 36, marginBottom: 8 }}>👤</div>
-                <p style={{ fontSize: 13 }}>No other managers found.</p>
+                <p style={{ fontSize: 13 }}>{t('No other managers found.')}</p>
               </div>
             ) : (
               <>
                 {/* Manager picker */}
                 <div className="mb-4">
-                  <label className="form-label">Select Manager *</label>
+                  <label className="form-label">{t('Select Manager *')}</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
                     {managers.map(m => (
                       <label
@@ -473,7 +474,7 @@ function MessageManagerModal({ onClose }) {
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
                           <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                            {m.department?.name ? `🏢 ${m.department.name}` : 'No department'}
+                            {m.department?.name ? `🏢 ${m.department.name}` : t('No department')}
                           </div>
                         </div>
                         {selected == m.id && (
@@ -487,23 +488,23 @@ function MessageManagerModal({ onClose }) {
                 {/* Message box */}
                 <div>
                   <label className="form-label">
-                    Your Message *
+                    {t('Your Message *')}
                     {selectedMgr && (
-                      <span style={{ marginLeft: 6, color: 'var(--accent)', fontWeight: 400 }}>
-                        → to {selectedMgr.name}
+                      <span style={{ marginInlineStart: 6, color: 'var(--accent)', fontWeight: 400 }}>
+                        {t('→ to')} {selectedMgr.name}
                       </span>
                     )}
                   </label>
                   <textarea
                     className="form-control"
                     rows={4}
-                    placeholder={selectedMgr ? `Write your message to ${selectedMgr.name}...` : 'Select a manager first...'}
+                    placeholder={selectedMgr ? t('Write your message to {name}...', { name: selectedMgr.name }) : t('Select a manager first...')}
                     value={message}
                     onChange={e => setMessage(e.target.value)}
                     disabled={!selected}
                   />
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                    {message.length}/1000 characters
+                    {message.length}{t('/1000 characters')}
                   </div>
                 </div>
               </>
@@ -511,13 +512,13 @@ function MessageManagerModal({ onClose }) {
           </div>
 
           <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn btn-secondary" onClick={onClose}>{t('Cancel')}</button>
             <button
               className="btn-accent"
               onClick={handleSend}
               disabled={sending || !selected || !message.trim() || loadingMgr}
             >
-              {sending ? 'Sending...' : '📨 Send Message'}
+              {sending ? t('Sending...') : t('📨 Send Message')}
             </button>
           </div>
         </div>
