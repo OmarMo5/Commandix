@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class TaskComment extends Model
 {
     protected $fillable = [
-        'task_id', 'user_id', 'parent_id', 'content', 'is_question', 'is_answered', 'mentioned_user_id',
+        'task_id', 'user_id', 'parent_id', 'content', 'is_question', 'is_answered',
     ];
 
     protected function casts(): array
@@ -35,11 +35,12 @@ class TaskComment extends Model
 
     public function replies()
     {
-        return $this->hasMany(TaskComment::class, 'parent_id')->with('user:id,name,avatar', 'mentionedUser:id,name');
+        return $this->hasMany(TaskComment::class, 'parent_id')->with('user:id,name,avatar', 'mentionedUsers:id,name');
     }
 
-    public function mentionedUser()
+    /** People tagged with @ in this message. */
+    public function mentionedUsers()
     {
-        return $this->belongsTo(User::class, 'mentioned_user_id');
+        return $this->belongsToMany(User::class, 'comment_mentions', 'comment_id', 'user_id');
     }
 }

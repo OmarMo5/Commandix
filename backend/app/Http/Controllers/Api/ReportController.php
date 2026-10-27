@@ -66,7 +66,8 @@ class ReportController extends Controller
 
     private function baseTaskQuery(Request $request)
     {
-        $query = Task::query();
+        // Private groups are never part of company-wide reporting.
+        $query = Task::where('is_private', false);
 
         if ($request->from) {
             $query->whereDate('created_at', '>=', $request->from);
@@ -123,7 +124,7 @@ class ReportController extends Controller
                 continue;
             }
 
-            $completed = Task::whereIn('id', $assignedIds)->where('status', 'completed')->count();
+            $completed = Task::whereIn('id', $assignedIds)->where('status', 'completed')->count();  // ids already exclude private tasks
 
             $result[] = [
                 'id'              => $u->id,

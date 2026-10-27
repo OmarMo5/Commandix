@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 
 class RoleController extends Controller
 {
+    /** Built-in roles the whole app's authorization logic keys off by name. */
+    private const SYSTEM_ROLES = ['super_admin', 'admin', 'manager', 'employee'];
+
     public function index()
     {
         return response()->json(Role::with('permissions')->get());
@@ -54,7 +57,13 @@ class RoleController extends Controller
         ]);
 
         $old = $role->toArray();
-        $role->update($request->only(['name', 'display_name', 'description']));
+
+        // Renaming a built-in role would silently break every isAdmin()/isManager() check.
+        $fields = in_array($role->name, self::SYSTEM_ROLES, true)
+            ? $request->only(['display_name', 'description'])
+            : $request->only(['name', 'display_name', 'description']);
+
+        $role->update($fields);
 
         if ($request->has('permissions')) {
             $role->permissions()->sync($request->permissions ?? []);
@@ -68,6 +77,15 @@ class RoleController extends Controller
     public function destroy(string $id)
     {
         $role = Role::findOrFail($id);
+
+        if (in_array($role->name, self::SYSTEM_ROLES, true)) {
+            return response()->json(['message' => 'Built-in roles cannot be deleted.'], 422);
+        }
+
+        if ($role->users()->exists()) {
+            return response()->json(['message' => 'Reassign the users in this role before deleting it.'], 422);
+        }
+
         ActivityLog::record('role_deleted', $role, $role->toArray());
         $role->delete();
         return response()->json(['message' => 'Role deleted successfully.']);

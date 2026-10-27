@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\Task;
 use App\Models\TaskNotification;
 use App\Models\TaskWorkflowStep;
+use App\Support\TaskAccess;
 use Illuminate\Http\Request;
 
 class WorkflowController extends Controller
@@ -35,6 +36,17 @@ class WorkflowController extends Controller
     public function store(Request $request, string $taskId)
     {
         $task = Task::findOrFail($taskId);
+
+        // Only someone who can edit the task may (re)define its workflow — this
+        // endpoint used to accept any authenticated user for any task id.
+        if (!TaskAccess::canEdit($request->user(), $task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Private groups are conversations, not pipelines.
+        if ($task->is_private) {
+            return response()->json(['message' => 'Workflows are not available inside private groups.'], 422);
+        }
 
         $request->validate([
             'steps'           => 'required|array|min:2',
@@ -170,14 +182,14 @@ class WorkflowController extends Controller
 
     /**
      * DELETE /tasks/{taskId}/workflow
-     * Remove workflow from a task (admin/manager/creator only).
+     * Remove workflow from a task (anyone who can edit the task).
      */
     public function destroy(string $taskId)
     {
         $task = Task::findOrFail($taskId);
         $user = auth()->user();
 
-        if (!$user->isAdminOrAbove() && !$user->isManager() && $task->creator_id !== $user->id) {
+        if (!TaskAccess::canEdit($user, $task)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -192,15 +204,13 @@ class WorkflowController extends Controller
     private function authorizeView(Task $task): void
     {
         $user = auth()->user();
-        if ($user->isAdminOrAbove() || $user->isManager()) return;
 
-        $isAssigned = $task->assignees()->where('users.id', $user->id)->exists()
-            || $task->workflowSteps()->where('user_id', $user->id)->exists()
-            || $task->creator_id === $user->id;
+        if (TaskAccess::canView($user, $task)) return;
 
-        if (!$isAssigned) {
-            abort(403, 'Unauthorized.');
-        }
+        // A workflow participant can always see the pipeline they're part of.
+        if ($task->workflowSteps()->where('user_id', $user->id)->exists()) return;
+
+        abort(403, 'Unauthorized.');
     }
 
     private function notify(int $userId, string $type, array $data): void

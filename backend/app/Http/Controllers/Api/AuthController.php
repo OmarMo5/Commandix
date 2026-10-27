@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -81,6 +82,58 @@ class AuthController extends Controller
     {
         $user = $request->user()->load(['role.permissions', 'department']);
         return response()->json($this->formatUser($user));
+    }
+
+    /**
+     * PUT /auth/profile — self-service name/email edit. Deliberately limited to
+     * those two fields so it can never be used to change one's own role,
+     * department, or active flag (that stays behind users.edit).
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name'  => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+        ]);
+
+        $old = $user->only(['name', 'email']);
+        $user->update($data);
+        ActivityLog::record('profile_updated', $user, $old, $data);
+
+        return response()->json($this->formatUser($user->load(['role.permissions', 'department'])));
+    }
+
+    /**
+     * PUT /auth/password — self-service password change. Requires the current
+     * password, and signs out every other device/session afterwards.
+     */
+    public function changePassword(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'current_password' => 'required|string',
+            'password'         => 'required|string|min:8|confirmed|different:current_password',
+        ]);
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        // Sign out every other device, keep this session alive.
+        $current = $user->currentAccessToken();
+        $user->tokens()
+            ->when($current instanceof PersonalAccessToken, fn($q) => $q->where('id', '!=', $current->id))
+            ->delete();
+        ActivityLog::record('password_changed', $user);
+
+        return response()->json(['message' => 'Password changed successfully.']);
     }
 
     private function formatUser(User $user): array

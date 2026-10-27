@@ -36,7 +36,9 @@ class TaskAccess
             || $task->creator_id === $user->id
             || $task->assignees->contains('id', $user->id)
             || $task->mentions->contains('id', $user->id)
-            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id);
+            || ($user->isManager() && $user->department_id && $task->department_id === $user->department_id)
+            // Someone whose turn it is in a sequential workflow has to be able to open the task.
+            || $task->workflowSteps->contains('user_id', $user->id);
     }
 
     public static function canEdit(User $user, Task $task): bool
@@ -75,12 +77,23 @@ class TaskAccess
         return $user->isSuperAdmin() || $task->creator_id === $user->id;
     }
 
+    /** Closed (by the Super Admin) or archived (by the group's owner) — itself or via its parent group. */
     public static function isLocked(Task $task): bool
     {
-        if ($task->closed_at !== null) {
+        if ($task->closed_at !== null || $task->archived_at !== null) {
             return true;
         }
 
-        return $task->parent_group_id !== null && $task->parentGroup->closed_at !== null;
+        return $task->parent_group_id !== null
+            && ($task->parentGroup->closed_at !== null || $task->parentGroup->archived_at !== null);
+    }
+
+    public static function lockedMessage(Task $task): string
+    {
+        $root = $task->parent_group_id ? $task->parentGroup : $task;
+
+        return $root->closed_at !== null || $task->closed_at !== null
+            ? 'This group is closed.'
+            : 'This group is archived.';
     }
 }

@@ -6,47 +6,57 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Task;
 use App\Models\TaskNotification;
+use App\Models\TaskRead;
 use App\Models\User;
 use App\Support\TaskAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class TaskController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Task::with(['creator:id,name,avatar', 'assignees:id,name,avatar', 'department:id,name', 'attachments']);
+        $request->validate([
+            'status'        => 'nullable|in:pending,in_progress,completed',
+            'priority'      => 'nullable|in:low,medium,high',
+            'department_id' => 'nullable|integer',
+            'assignee_id'   => 'nullable|integer',
+            'creator_id'    => 'nullable|integer',
+            'due'           => 'nullable|in:overdue,today,week,none',
+            'due_from'      => 'nullable|date',
+            'due_to'        => 'nullable|date',
+        ]);
+
+        // workflowSteps is needed by the edit form: without it, opening a
+        // workflow task from the board looked workflow-less and saving it removed the chain.
+        $query = Task::with(['creator:id,name,avatar', 'assignees:id,name,avatar', 'department:id,name', 'attachments', 'workflowSteps.user:id,name']);
         $user = $request->user();
+
+        // Honour ?per_page= (the Kanban board asks for 100) instead of silently
+        // truncating the board to the first 20 tasks.
+        $perPage = $request->filled('per_page') ? min(max((int) $request->per_page, 1), 200) : 20;
 
         // ── Groups scope: private tasks only, membership-restricted ────────────
         if ($request->scope === 'groups') {
             $query->where('is_private', true)->whereNull('parent_group_id');
+            // Archived groups live on their own tab: ?archived=1 shows only those, otherwise they're hidden.
+            $request->boolean('archived') ? $query->whereNotNull('archived_at') : $query->whereNull('archived_at');
             if (!$user->isSuperAdmin()) {
                 $query->where(function ($q) use ($user) {
                     $q->where('creator_id', $user->id)
                       ->orWhereHas('assignees', fn($q2) => $q2->where('users.id', $user->id));
                 });
             }
-            return response()->json($query->latest()->paginate(20));
+            return response()->json($query->latest()->paginate($perPage));
         }
 
         // ── Normal tasks: never include private groups ──────────────────────────
         $query->where('is_private', false);
 
-        if ($request->status) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->department_id) {
-            $query->where('department_id', $request->department_id);
-        }
-
-        if ($request->search) {
-            $query->where('title', 'like', "%{$request->search}%");
-        }
-
-        if ($request->priority) {
-            $query->where('priority', $request->priority);
-        }
+        // Filters narrow the result; they run before the role scoping below, which
+        // is AND-ed on top, so a filter can never reveal a task the user couldn't already see.
+        $this->applyFilters($query, $request, $user);
 
         if ($user->isAdminOrAbove()) {
             // Admin / Super Admin see everything — no filter
@@ -57,7 +67,9 @@ class TaskController extends Controller
                     $q->where('department_id', $user->department_id);
                 }
                 $q->orWhere('creator_id', $user->id)
-                  ->orWhereHas('mentions', fn($q2) => $q2->where('users.id', $user->id));
+                  ->orWhereHas('mentions', fn($q2) => $q2->where('users.id', $user->id))
+                  // Assigned to them from another department — canView already allows it.
+                  ->orWhereHas('assignees', fn($q2) => $q2->where('users.id', $user->id));
             });
         } else {
             // Employee sees only tasks assigned to them, within their department
@@ -73,7 +85,7 @@ class TaskController extends Controller
             }
         }
 
-        return response()->json($query->latest()->paginate(20));
+        return response()->json($query->latest()->paginate($perPage));
     }
 
     public function store(Request $request)
@@ -229,7 +241,7 @@ class TaskController extends Controller
         }
 
         if (TaskAccess::isLocked($group)) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($group)], 423);
         }
 
         $request->validate([
@@ -337,7 +349,7 @@ class TaskController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $request->validate([
@@ -355,7 +367,16 @@ class TaskController extends Controller
         ]);
 
         $old = $task->toArray();
-        $task->update($request->only(['title', 'description', 'priority', 'department_id', 'due_date', 'recurrence', 'recurrence_end_date']));
+        $fields = $request->only(['title', 'description', 'priority', 'department_id', 'due_date', 'recurrence', 'recurrence_end_date']);
+
+        // A new deadline means the due-soon / overdue reminders should fire again.
+        if ($request->has('due_date')
+            && ($task->due_date?->toDateString()) !== ($request->due_date ? Carbon::parse($request->due_date)->toDateString() : null)) {
+            $fields['due_reminder_sent_at'] = null;
+            $fields['overdue_notified_at'] = null;
+        }
+
+        $task->update($fields);
 
         if ($request->has('assignees')) {
             $task->assignees()->sync($request->assignees ?? []);
@@ -382,7 +403,7 @@ class TaskController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $oldStatus = $task->status;
@@ -428,7 +449,7 @@ class TaskController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $task->assignees()->syncWithoutDetaching([$target->id]);
@@ -466,7 +487,7 @@ class TaskController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $task->assignees()->detach($target->id);
@@ -587,6 +608,142 @@ class TaskController extends Controller
         ActivityLog::record('task_reopened', $task, [], []);
 
         return response()->json($task);
+    }
+
+    /**
+     * Board filters: search (title + description), status, priority, department,
+     * assignee, creator, "mine", due-date presets and a custom due range.
+     */
+    private function applyFilters($query, Request $request, $user): void
+    {
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('search')) {
+            // Escape LIKE wildcards so "100%" or "a_b" match literally. '!' is the escape
+            // character because (unlike a backslash) it means the same on MySQL and SQLite.
+            $term = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $request->search) . '%';
+            $query->where(fn($q) => $q->whereRaw("title LIKE ? ESCAPE '!'", [$term])
+                ->orWhereRaw("description LIKE ? ESCAPE '!'", [$term]));
+        }
+
+        if ($request->filled('assignee_id')) {
+            $query->whereHas('assignees', fn($q) => $q->where('users.id', $request->assignee_id));
+        }
+
+        if ($request->filled('creator_id')) {
+            $query->where('creator_id', $request->creator_id);
+        }
+
+        if ($request->boolean('mine')) {
+            $query->where(fn($q) => $q->where('creator_id', $user->id)
+                ->orWhereHas('assignees', fn($a) => $a->where('users.id', $user->id)));
+        }
+
+        match ($request->due) {
+            'overdue' => $query->overdue(),
+            'today'   => $query->whereDate('due_date', today()),
+            'week'    => $query->whereDate('due_date', '>=', today())->whereDate('due_date', '<=', today()->addDays(7)),
+            'none'    => $query->whereNull('due_date'),
+            default   => null,
+        };
+
+        if ($request->filled('due_from')) {
+            $query->whereDate('due_date', '>=', $request->due_from);
+        }
+
+        if ($request->filled('due_to')) {
+            $query->whereDate('due_date', '<=', $request->due_to);
+        }
+    }
+
+    /**
+     * POST /tasks/{id}/archive and /unarchive — the group's creator (or the Super Admin)
+     * tucks a finished group away. Archived groups leave the main list and become read-only.
+     */
+    public function archive(Request $request, string $id)
+    {
+        return $this->setArchived($request, $id, true);
+    }
+
+    public function unarchive(Request $request, string $id)
+    {
+        return $this->setArchived($request, $id, false);
+    }
+
+    private function setArchived(Request $request, string $id, bool $archive)
+    {
+        $task = Task::with(['assignees', 'mentions'])->findOrFail($id);
+        $user = $request->user();
+
+        if (!TaskAccess::canView($user, $task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (!$task->is_private || $task->parent_group_id) {
+            return response()->json(['message' => 'Only a group can be archived.'], 422);
+        }
+
+        if (!$user->isSuperAdmin() && $task->creator_id !== $user->id) {
+            return response()->json(['message' => 'Only the group creator can archive it.'], 403);
+        }
+
+        $task->update(['archived_at' => $archive ? now() : null]);
+        ActivityLog::record($archive ? 'group_archived' : 'group_unarchived', $task);
+
+        return response()->json($task);
+    }
+
+    /**
+     * POST /tasks/{id}/leave — a member walks out of a group (and its tasks). The creator
+     * can't: that would orphan the group, so they archive or delete it instead.
+     */
+    public function leave(Request $request, string $id)
+    {
+        $task = Task::with(['assignees', 'mentions'])->findOrFail($id);
+        $user = $request->user();
+
+        $isCreator = $task->creator_id === $user->id;
+        if (!$isCreator && !$task->assignees->contains('id', $user->id)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (!$task->is_private || $task->parent_group_id) {
+            return response()->json(['message' => 'Only a group can be left.'], 422);
+        }
+
+        if ($isCreator) {
+            return response()->json(['message' => "You created this group, so you can't leave it. Archive or delete it instead."], 422);
+        }
+
+        if (TaskAccess::isLocked($task)) {
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
+        }
+
+        DB::transaction(function () use ($task, $user) {
+            $taskIds = Task::where('parent_group_id', $task->id)->pluck('id')->push($task->id);
+
+            DB::table('task_assignees')->whereIn('task_id', $taskIds)->where('user_id', $user->id)->delete();
+            TaskRead::whereIn('task_id', $taskIds)->where('user_id', $user->id)->delete();
+        });
+
+        TaskNotification::create([
+            'user_id' => $task->creator_id,
+            'type'    => 'group_member_left',
+            'data'    => ['task_id' => $task->id, 'task_title' => $task->title, 'user_name' => $user->name],
+        ]);
+        ActivityLog::record('group_member_left', $task, ['user_id' => $user->id], []);
+
+        return response()->json(['message' => 'You left the group.']);
     }
 
     private function canManageAssignee($user, Task $task, User $target): bool

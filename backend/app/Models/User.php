@@ -79,8 +79,22 @@ class User extends Authenticatable
         return $this->role?->name === 'manager';
     }
 
+    /**
+     * The avatar is stored as a path on the public disk but always *served* as a full URL,
+     * so every endpoint that embeds a user (assignees, comments, members…) renders a working <img>.
+     * Writes still take the raw path: `$user->update(['avatar' => 'avatars/x.png'])`.
+     */
+    public function getAvatarAttribute(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        return str_starts_with($value, 'http') ? $value : asset('storage/' . $value);
+    }
+
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar ? asset('storage/' . $this->avatar) : null;
+        return $this->avatar;
     }
 }

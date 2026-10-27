@@ -38,7 +38,7 @@ class TaskChecklistController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $request->validate(['title' => 'required|string|max:255']);
@@ -78,7 +78,7 @@ class TaskChecklistController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $request->validate([
@@ -105,7 +105,7 @@ class TaskChecklistController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $item->delete();

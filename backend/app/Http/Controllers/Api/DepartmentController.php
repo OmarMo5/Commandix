@@ -67,7 +67,20 @@ class DepartmentController extends Controller
 
     public function show(string $id)
     {
-        $department = Department::with(['manager', 'users.role', 'tasks'])->findOrFail($id);
+        $user = auth()->user();
+
+        // Same visibility as index(): below Admin, only your own department.
+        if (!$user->isAdminOrAbove() && (!$user->department_id || (int) $id !== $user->department_id)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $department = Department::with([
+            'manager:id,name,email,avatar',
+            'users.role',
+            // Private groups carry no department, but never list them here anyway.
+            'tasks' => fn($q) => $q->where('is_private', false),
+        ])->findOrFail($id);
+
         return response()->json($department);
     }
 

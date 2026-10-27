@@ -8,6 +8,7 @@ use App\Models\TaskComment;
 use App\Models\TaskNotification;
 use App\Support\TaskAccess;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TaskCommentController extends Controller
 {
@@ -23,7 +24,7 @@ class TaskCommentController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $comments = TaskComment::with(['user:id,name,avatar', 'mentionedUser:id,name', 'replies.user:id,name,avatar'])
+        $comments = TaskComment::with(['user:id,name,avatar', 'mentionedUsers:id,name', 'replies.user:id,name,avatar'])
             ->where('task_id', $taskId)
             ->whereNull('parent_id')   // top-level only
             ->latest()
@@ -46,51 +47,43 @@ class TaskCommentController extends Controller
         }
 
         if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'This group is closed.'], 423);
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
         }
 
         $request->validate([
-            'content'            => 'required|string|max:2000',
-            'is_question'        => 'sometimes|boolean',
-            'parent_id'          => 'nullable|exists:task_comments,id',
-            'mentioned_user_id'  => 'nullable|exists:users,id',
+            'content'              => 'required|string|max:2000',
+            'is_question'          => 'sometimes|boolean',
+            // A reply must hang off a comment of *this* task, never one from somewhere else.
+            'parent_id'            => ['nullable', Rule::exists('task_comments', 'id')->where('task_id', $taskId)],
+            'mentioned_user_ids'   => 'nullable|array|max:20',
+            'mentioned_user_ids.*' => 'integer|exists:users,id',
+            'mentioned_user_id'    => 'nullable|integer|exists:users,id',   // older single-tag form
         ]);
 
-        // A tag can only reach someone already on the task — its own creator or
-        // one of its assignees. This mirrors TaskAccess membership so a mention
-        // can never be used to notify (or reveal a private task to) an outsider.
-        // Inside a group's sub-task, the taggable pool widens to the *whole*
-        // group's membership, not just this sub-task's own (narrower) assignees
-        // — you can tag anyone in the group from any task inside it.
-        if ($request->mentioned_user_id) {
-            $taggable = $task->creator_id === (int) $request->mentioned_user_id
-                || $task->assignees->contains('id', $request->mentioned_user_id);
+        // @-tags can only reach someone already inside the task — never an outsider.
+        $mentionedIds = collect($request->mentioned_user_ids ?? [])
+            ->push($request->mentioned_user_id)
+            ->filter()->map(fn($id) => (int) $id)->unique()->values();
 
-            if (!$taggable && $task->parent_group_id && $task->parentGroup) {
-                $taggable = $task->parentGroup->creator_id === (int) $request->mentioned_user_id
-                    || $task->parentGroup->assignees->contains('id', $request->mentioned_user_id);
-            }
-
-            if (!$taggable) {
-                return response()->json(['message' => 'You can only tag someone on this task.'], 422);
-            }
+        if ($mentionedIds->diff($this->taggableIds($task))->isNotEmpty()) {
+            return response()->json(['message' => 'You can only tag someone on this task.'], 422);
         }
 
         $comment = TaskComment::create([
-            'task_id'            => $taskId,
-            'user_id'            => auth()->id(),
-            'parent_id'          => $request->parent_id,
-            'content'            => $request->content,
-            'is_question'        => $request->is_question ?? false,
-            'is_answered'        => false,
-            'mentioned_user_id'  => $request->mentioned_user_id,
+            'task_id'     => $taskId,
+            'user_id'     => auth()->id(),
+            'parent_id'   => $request->parent_id,
+            'content'     => $request->content,
+            'is_question' => $request->is_question ?? false,
+            'is_answered' => false,
         ]);
 
-        $comment->load('user:id,name,avatar', 'mentionedUser:id,name', 'replies.user:id,name,avatar');
+        $comment->mentionedUsers()->sync($mentionedIds);
+        $comment->load('user:id,name,avatar', 'mentionedUsers:id,name', 'replies.user:id,name,avatar');
 
-        if ($request->mentioned_user_id && (int) $request->mentioned_user_id !== auth()->id()) {
+        foreach ($mentionedIds->reject(fn($id) => $id === auth()->id()) as $userId) {
             TaskNotification::create([
-                'user_id' => $request->mentioned_user_id,
+                'user_id' => $userId,
                 'type'    => 'comment_mention',
                 'data'    => [
                     'task_id'    => $task->id,
@@ -123,7 +116,7 @@ class TaskCommentController extends Controller
         }
 
         // Remove duplicates and the commenter themselves
-        $notifyIds = $notifyIds->unique()->filter(fn($id) => $id !== auth()->id());
+        $notifyIds = $notifyIds->unique()->filter(fn($id) => $id !== auth()->id() && !$mentionedIds->contains($id));
 
         $type = $request->is_question ? 'task_question' : 'task_comment';
 
@@ -142,6 +135,21 @@ class TaskCommentController extends Controller
         }
 
         return response()->json($comment, 201);
+    }
+
+    /**
+     * Who may be @-tagged on this task: its creator and assignees — and, inside a
+     * group's task, anyone in the whole group (not only that task's own assignees).
+     */
+    private function taggableIds(Task $task)
+    {
+        $ids = $task->assignees->pluck('id')->push($task->creator_id);
+
+        if ($task->parent_group_id && $task->parentGroup) {
+            $ids = $ids->merge($task->parentGroup->assignees->pluck('id'))->push($task->parentGroup->creator_id);
+        }
+
+        return $ids->map(fn($id) => (int) $id)->unique()->values();
     }
 
     /**

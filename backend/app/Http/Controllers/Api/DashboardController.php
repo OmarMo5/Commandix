@@ -72,6 +72,7 @@ class DashboardController extends Controller
                 'pending' => $tasksByStatus['pending'] ?? 0,
                 'in_progress' => $tasksByStatus['in_progress'] ?? 0,
                 'completed' => $tasksByStatus['completed'] ?? 0,
+                'overdue' => (clone $taskQuery)->overdue()->count(),
             ],
             'tasks_by_priority' => [
                 'low' => $tasksByPriority['low'] ?? 0,

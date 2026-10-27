@@ -16,9 +16,12 @@ class UserController extends Controller
         $authUser = $request->user();
         $query    = User::with(['role', 'department']);
 
-        // Manager sees only their department's users
-        if ($authUser->isManager() && !$authUser->isAdminOrAbove()) {
-            $query->where('department_id', $authUser->department_id);
+        // Anyone below Admin only sees their own department (or just themselves
+        // if they have none) — the company-wide picker is /users/directory.
+        if (!$authUser->isAdminOrAbove()) {
+            $authUser->department_id
+                ? $query->where('department_id', $authUser->department_id)
+                : $query->where('id', $authUser->id);
         }
 
         if ($request->search) {
@@ -36,7 +39,11 @@ class UserController extends Controller
             $query->where('role_id', $request->role_id);
         }
 
-        return response()->json($query->paginate(15));
+        // Honour ?per_page= (the pickers ask for 100–200) but cap it, instead of
+        // silently truncating every dropdown to the first 15 people.
+        $perPage = $request->filled('per_page') ? min(max((int) $request->per_page, 1), 200) : 15;
+
+        return response()->json($query->paginate($perPage));
     }
 
     /**
@@ -85,9 +92,23 @@ class UserController extends Controller
         return response()->json($user->load(['role', 'department']), 201);
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        $user = User::with(['role.permissions', 'department', 'assignedTasks', 'createdTasks'])->findOrFail($id);
+        $authUser = $request->user();
+
+        $user = User::with([
+            'role.permissions',
+            'department',
+            // Private groups never surface through someone else's profile.
+            'assignedTasks' => fn($q) => $q->where('is_private', false),
+            'createdTasks'  => fn($q) => $q->where('is_private', false),
+        ])->findOrFail($id);
+
+        $sameDepartment = $authUser->department_id && $user->department_id === $authUser->department_id;
+        if (!$authUser->isAdminOrAbove() && $user->id !== $authUser->id && !$sameDepartment) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json($user);
     }
 
@@ -112,8 +133,19 @@ class UserController extends Controller
             return $response;
         }
 
+        if ($request->has('is_active') && !$request->boolean('is_active') && $user->id === $authUser->id) {
+            return response()->json(['message' => 'You cannot deactivate your own account.'], 422);
+        }
+
         $old = $user->toArray();
         $user->update($request->only(['name', 'email', 'role_id', 'department_id', 'is_active']));
+
+        // A deactivated account must lose access immediately — login already
+        // refuses it, but tokens issued earlier would otherwise keep working.
+        if ($request->has('is_active') && !$request->boolean('is_active')) {
+            $user->tokens()->delete();
+        }
+
         ActivityLog::record('user_updated', $user, $old, $user->fresh()->toArray());
 
         return response()->json($user->load(['role', 'department']));
@@ -155,11 +187,25 @@ class UserController extends Controller
         return null;
     }
 
+    /**
+     * Admin-initiated password reset. Same rule as update()/destroy(): only a
+     * Super Admin may touch an Admin or Super Admin account — otherwise any
+     * Admin could reset the Super Admin's password and take the system over.
+     * (Changing your *own* password goes through PUT /auth/password instead.)
+     */
     public function updatePassword(Request $request, string $id)
     {
         $request->validate(['password' => 'required|min:8|confirmed']);
-        $user = User::findOrFail($id);
+        $user = User::with('role')->findOrFail($id);
+
+        if ($user->isAdminOrAbove() && !$request->user()->isSuperAdmin()) {
+            return response()->json(['message' => 'Only a Super Admin can reset an Admin or Super Admin password.'], 403);
+        }
+
         $user->update(['password' => Hash::make($request->password)]);
+        $user->tokens()->delete();
+        ActivityLog::record('password_reset', $user);
+
         return response()->json(['message' => 'Password updated successfully.']);
     }
 

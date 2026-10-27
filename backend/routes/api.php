@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SavedViewController;
+use App\Http\Controllers\Api\TaskReadController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TaskChecklistController;
@@ -32,6 +34,8 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('me',      [AuthController::class, 'me']);
+            Route::put('profile', [AuthController::class, 'updateProfile']);
+            Route::put('password', [AuthController::class, 'changePassword'])->middleware('throttle:6,1');
         });
 
         // Dashboard
@@ -67,6 +71,11 @@ Route::prefix('v1')->group(function () {
         Route::put('departments/{id}',   [DepartmentController::class, 'update'])->middleware('permission:departments.edit');
         Route::delete('departments/{id}',[DepartmentController::class, 'destroy'])->middleware('permission:departments.delete');
 
+        // Saved filter presets — personal, no permission gate
+        Route::get('saved-views',         [SavedViewController::class, 'index']);
+        Route::post('saved-views',        [SavedViewController::class, 'store']);
+        Route::delete('saved-views/{id}', [SavedViewController::class, 'destroy']);
+
         // Tasks — permission-gated per action
         Route::get('tasks',        [TaskController::class, 'index'])->middleware('permission:tasks.view');
         Route::post('tasks/groups',[TaskController::class, 'storeGroup']);
@@ -89,6 +98,12 @@ Route::prefix('v1')->group(function () {
         Route::post('tasks/{id}/close',  [TaskController::class, 'close'])->middleware('superadmin');
         Route::post('tasks/{id}/reopen', [TaskController::class, 'reopen'])->middleware('superadmin');
 
+        Route::post('tasks/{id}/read',   [TaskReadController::class, 'markRead']);
+        Route::get('tasks/{id}/readers', [TaskReadController::class, 'readers']);
+        Route::post('tasks/{id}/archive',   [TaskController::class, 'archive']);
+        Route::post('tasks/{id}/unarchive', [TaskController::class, 'unarchive']);
+        Route::post('tasks/{id}/leave',     [TaskController::class, 'leave']);
+
         // Tasks-inside-a-group — permission-free like tasks/groups, controller
         // enforces membership via TaskAccess (any group member, per plan).
         Route::get('tasks/{id}/subtasks',  [TaskController::class, 'subtasks']);
@@ -108,6 +123,7 @@ Route::prefix('v1')->group(function () {
 
         // Attachments
         Route::post('tasks/{taskId}/attachments', [AttachmentController::class, 'store']);
+        Route::get('attachments/{id}/download',   [AttachmentController::class, 'download']);
         Route::delete('attachments/{id}',         [AttachmentController::class, 'destroy']);
 
         // Workflow
@@ -117,6 +133,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('tasks/{taskId}/workflow',            [WorkflowController::class, 'destroy']);
 
         // Notifications
+        Route::get('notifications/summary',          [NotificationController::class, 'summary']);
         Route::get('notifications',                  [NotificationController::class, 'index']);
         Route::put('notifications/read-all',         [NotificationController::class, 'markAllRead']);
         Route::put('notifications/{id}/read',        [NotificationController::class, 'markRead']);

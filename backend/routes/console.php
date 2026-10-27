@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Requires a real server cron entry running `php artisan schedule:run` every minute
 // to actually fire in production — this alone is not enough on its own.
 Schedule::command('tasks:generate-recurring')->daily();
+
+// Due-soon (today/tomorrow) and overdue notifications — each task is notified once per due date.
+Schedule::command('tasks:notify-due')->dailyAt('08:00');
