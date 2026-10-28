@@ -25,5 +25,8 @@ class AppServiceProvider extends ServiceProvider
             $key = strtolower((string) $request->input('email')) . '|' . $request->ip();
             return Limit::perMinute(8)->by($key);
         });
+
+        // Direct messages: generous for real conversation, tight enough to stop a flood.
+        RateLimiter::for('dm', fn($request) => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
     }
 }

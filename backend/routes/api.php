@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\DirectMessageController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
@@ -132,11 +133,24 @@ Route::prefix('v1')->group(function () {
         Route::put('tasks/{taskId}/workflow/complete-step', [WorkflowController::class, 'completeStep']);
         Route::delete('tasks/{taskId}/workflow',            [WorkflowController::class, 'destroy']);
 
+        // Direct messages — 1-to-1, private to the two people; no permission gate (any signed-in user)
+        Route::get('dm',                              [DirectMessageController::class, 'index']);
+        Route::post('dm',                             [DirectMessageController::class, 'start']);
+        Route::get('dm/{id}',                         [DirectMessageController::class, 'show']);
+        Route::get('dm/{id}/messages',                [DirectMessageController::class, 'messages']);
+        Route::post('dm/{id}/messages',               [DirectMessageController::class, 'send'])->middleware('throttle:dm');
+        Route::post('dm/{id}/read',                   [DirectMessageController::class, 'markRead']);
+        Route::delete('dm/{id}/messages/{messageId}', [DirectMessageController::class, 'destroy']);
+
         // Notifications
         Route::get('notifications/summary',          [NotificationController::class, 'summary']);
         Route::get('notifications',                  [NotificationController::class, 'index']);
         Route::put('notifications/read-all',         [NotificationController::class, 'markAllRead']);
         Route::put('notifications/{id}/read',        [NotificationController::class, 'markRead']);
+        Route::post('notifications/clear-all',       [NotificationController::class, 'clearAll']);
+        Route::put('notifications/{id}/clear',       [NotificationController::class, 'clear']);
+        Route::put('notifications/{id}/restore',     [NotificationController::class, 'restore']);
+        Route::put('notifications/{id}/snooze',      [NotificationController::class, 'snooze']);
 
         // Activity Logs
         Route::get('activity-logs', [ActivityLogController::class, 'index'])->middleware('permission:activity.view');
