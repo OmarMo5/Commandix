@@ -40,7 +40,7 @@ class NotificationController extends Controller
         }
 
         return response()->json([
-            'notifications' => $query->latest('id')->paginate(20),
+            'notifications' => $query->orderByDesc('created_at')->orderByDesc('id')->paginate(20),
             'unread_count'  => $mine()->inbox()->unread()->count(),
             'counts'        => [
                 'primary_unread' => $mine()->inbox()->primary()->unread()->count(),

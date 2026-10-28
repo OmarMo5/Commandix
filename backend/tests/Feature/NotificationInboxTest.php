@@ -193,4 +193,15 @@ class NotificationInboxTest extends ApiTestCase
         $this->assertGreaterThan($page1['data'][19]['id'], $page1['data'][0]['id']);
         $this->assertCount(5, $this->list($me, '?page=2')['notifications']['data']);
     }
+
+    public function test_newest_first_follows_the_notification_date_not_the_row_id(): void
+    {
+        $me = $this->makeUser('employee');
+        $new = $this->note($me);
+        $old = $this->note($me);   // inserted later, so it has the higher id…
+        $old->forceFill(['created_at' => now()->subDays(30)])->save();   // …but it is the older notification
+        $this->assertGreaterThan($new->id, $old->id);
+
+        $this->assertSame([$new->id, $old->id], collect($this->list($me)['notifications']['data'])->pluck('id')->all());
+    }
 }
