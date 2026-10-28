@@ -31,9 +31,9 @@ export function dueState(task) {
 }
 
 export const DUE_STYLES = {
-  overdue:  { bg: '#ef444418', color: '#dc2626', border: '#ef444455' },
-  today:    { bg: '#f59e0b18', color: '#d97706', border: '#f59e0b55' },
-  tomorrow: { bg: '#f59e0b12', color: '#b45309', border: '#f59e0b40' },
+  overdue:  { bg: 'var(--danger-light)', color: 'var(--danger)', border: 'color-mix(in srgb, var(--danger) 35%, transparent)' },
+  today:    { bg: 'var(--warning-light)', color: 'var(--warning)', border: 'color-mix(in srgb, var(--warning) 35%, transparent)' },
+  tomorrow: { bg: 'color-mix(in srgb, var(--warning) 8%, transparent)', color: 'var(--warning)', border: 'color-mix(in srgb, var(--warning) 25%, transparent)' },
 };
 
 export function dueLabel(state) {

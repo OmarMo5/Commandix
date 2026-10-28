@@ -180,9 +180,9 @@ export default function ProfilePage() {
               <div className="profile-section-header">
                 <div
                   className="profile-section-icon"
-                  style={{ background: 'var(--accent-light)', border: '1px solid rgba(99,102,241,0.2)' }}
+                  style={{ background: 'var(--accent-light)', border: '1px solid rgba(0,224,92,0.35)' }}
                 >
-                  <User size={16} color="var(--accent)" />
+                  <User size={16} color="var(--accent-ink)" />
                 </div>
                 <div>
                   <div className="profile-section-title">{t('Personal Information')}</div>
@@ -241,9 +241,9 @@ export default function ProfilePage() {
               <div className="profile-section-header">
                 <div
                   className="profile-section-icon"
-                  style={{ background: 'var(--warning-light)', border: '1px solid rgba(245,158,11,0.2)' }}
+                  style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)' }}
                 >
-                  <Key size={16} color="var(--warning)" />
+                  <Key size={16} color="var(--text-secondary)" />
                 </div>
                 <div>
                   <div className="profile-section-title">{t('Security')}</div>
@@ -315,7 +315,7 @@ export default function ProfilePage() {
                   <div style={{
                     padding: '12px 16px',
                     background: 'var(--info-light)',
-                    border: '1px solid rgba(59,130,246,0.15)',
+                    border: '1px solid rgba(0,115,211,0.2)',
                     borderRadius: 'var(--radius-sm)',
                     marginBottom: 16,
                     display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -327,7 +327,6 @@ export default function ProfilePage() {
                   </div>
 
                   <button type="submit" className="btn-accent" disabled={savingPwd}
-                    style={{ background: 'linear-gradient(135deg,#f59e0b,#f97316)', boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}
                   >
                     <Key size={14} />
                     {savingPwd ? t('Changing...') : t('Change Password')}

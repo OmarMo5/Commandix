@@ -4,12 +4,12 @@ import api from '../../api/axios';
 import { t, formatDate, formatDateTime } from '../../i18n';
 
 const actionColors = {
-  created: '#10b981',
-  updated: '#3b82f6',
-  deleted: '#ef4444',
-  login: '#6366f1',
-  logout: '#94a3b8',
-  default: '#f59e0b',
+  created: 'var(--accent-ink)',
+  updated: 'var(--info)',
+  deleted: 'var(--danger)',
+  login: 'var(--text-primary)',
+  logout: 'var(--text-muted)',
+  default: 'var(--warning)',
 };
 
 const getColor = (action) => {
@@ -77,7 +77,7 @@ export default function ActivityPage() {
                 <td>
                   <span style={{
                     fontSize: 12, padding: '2px 10px', borderRadius: 20,
-                    background: getColor(log.action) + '20',
+                    background: `color-mix(in srgb, ${getColor(log.action)} 15%, transparent)`,
                     color: getColor(log.action),
                     fontWeight: 500,
                   }}>
@@ -105,7 +105,7 @@ export default function ActivityPage() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 6, background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: 13 }}
+                style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 9999, color: 'var(--text-primary)', background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: 13 }}
               >
                 {t('← Prev')}
               </button>
@@ -126,7 +126,7 @@ export default function ActivityPage() {
                   p === '...'
                     ? <span key={`dots-${i}`} style={{ padding: '5px 4px', fontSize: 13, color: 'var(--text-secondary)' }}>…</span>
                     : <button key={p} onClick={() => setPage(p)}
-                        style={{ padding: '5px 11px', border: '1px solid var(--border-color)', borderRadius: 6, background: page === p ? 'var(--accent)' : 'none', color: page === p ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontWeight: page === p ? 700 : 400 }}>
+                        style={{ padding: '5px 11px', border: '1px solid var(--border-color)', borderRadius: 9999, background: page === p ? 'var(--accent)' : 'none', color: page === p ? 'var(--on-accent)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontWeight: page === p ? 700 : 400 }}>
                         {p}
                       </button>
                 );
@@ -135,7 +135,7 @@ export default function ActivityPage() {
               <button
                 onClick={() => setPage(p => Math.min(meta.last_page, p + 1))}
                 disabled={page === meta.last_page}
-                style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 6, background: 'none', cursor: page === meta.last_page ? 'not-allowed' : 'pointer', opacity: page === meta.last_page ? 0.4 : 1, fontSize: 13 }}
+                style={{ padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 9999, color: 'var(--text-primary)', background: 'none', cursor: page === meta.last_page ? 'not-allowed' : 'pointer', opacity: page === meta.last_page ? 0.4 : 1, fontSize: 13 }}
               >
                 {t('Next →')}
               </button>

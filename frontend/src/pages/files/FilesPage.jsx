@@ -92,7 +92,7 @@ export default function FilesPage() {
                   <div className="d-flex align-items-center gap-2">
                     <span style={{ fontSize: 22 }}>{typeIcon(file.file_type)}</span>
                     <div>
-                      <button type="button" onClick={() => openAttachment(file)} style={{ fontWeight: 500, color: 'var(--accent)', fontSize: 13, background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
+                      <button type="button" onClick={() => openAttachment(file)} style={{ fontWeight: 500, color: 'var(--accent-ink)', fontSize: 13, background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
                         {file.file_name}
                       </button>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{file.file_type}</div>

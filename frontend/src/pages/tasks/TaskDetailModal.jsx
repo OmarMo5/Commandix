@@ -488,12 +488,12 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
     padding: '8px 16px', fontSize: 13, fontWeight: 600, border: 'none',
     borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
     background: 'none', cursor: 'pointer',
-    color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
+    color: tab === t ? 'var(--accent-ink)' : 'var(--text-secondary)',
   });
 
   return (
     <>
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.55)' }}
+    <div className="modal show d-block" style={{ background: 'var(--scrim)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-dialog modal-lg modal-dialog-scrollable">
         <div className="modal-content">
@@ -515,27 +515,27 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                       </span>
                       <DueBadge task={task} />
                       {task.is_private && (
-                        <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           {t('🔒 Private Group')}
                         </span>
                       )}
                       {task.closed_at && (
-                        <span style={{ fontSize: 12, background: '#ef444420', color: '#ef4444', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, background: 'var(--danger-light)', color: 'var(--danger)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           {t('🚫 Closed')}
                         </span>
                       )}
                       {task.archived_at && (
-                        <span style={{ fontSize: 12, background: '#64748b20', color: '#64748b', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, background: 'var(--purple-light)', color: 'var(--text-secondary)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           {t('📦 Archived')}
                         </span>
                       )}
                       {task.workflow_enabled && (
-                        <span style={{ fontSize: 12, background: '#6366f120', color: '#6366f1', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           {t('🔄 Workflow')}
                         </span>
                       )}
                       {task.recurrence && (
-                        <span style={{ fontSize: 12, background: '#10b98120', color: '#10b981', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>
                           {t('🔁 Repeats')} {t(task.recurrence)}
                         </span>
                       )}
@@ -574,7 +574,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                   <button style={tabStyle('qa')} onClick={() => setTab('qa')}>
                     💬 Q&A
                     {unansweredQ > 0 && (
-                      <span style={{ marginInlineStart: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                      <span style={{ marginInlineStart: 6, background: 'var(--danger)', color: 'var(--on-danger)', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                         {unansweredQ}
                       </span>
                     )}
@@ -583,7 +583,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                     <button style={tabStyle('tasks')} onClick={() => setTab('tasks')}>
                       {t('📋 Tasks')}
                       {subtasks.length > 0 && (
-                        <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                        <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                           {subtasks.length}
                         </span>
                       )}
@@ -593,7 +593,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                     <button style={tabStyle('workflow')} onClick={() => setTab('workflow')}>
                       {t('🔄 Workflow')}
                       {myActiveStep && (
-                        <span style={{ marginInlineStart: 6, background: '#ef4444', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                        <span style={{ marginInlineStart: 6, background: 'var(--danger)', color: 'var(--on-danger)', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                           {t('Your Turn!')}
                         </span>
                       )}
@@ -605,7 +605,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
               <div className="modal-body">
 
                 {lockedAt && (
-                  <div style={{ marginBottom: 16, padding: '10px 14px', background: isArchived ? '#64748b15' : '#ef444415', border: `1px solid ${isArchived ? '#64748b40' : '#ef444440'}`, borderRadius: 8, fontSize: 13, color: isArchived ? '#475569' : '#ef4444', fontWeight: 500 }}>
+                  <div style={{ marginBottom: 16, padding: '10px 14px', background: isArchived ? 'var(--purple-light)' : 'var(--danger-light)', border: `1px solid ${isArchived ? 'color-mix(in srgb, var(--steel) 35%, transparent)' : 'color-mix(in srgb, var(--danger) 35%, transparent)'}`, borderRadius: 8, fontSize: 13, color: isArchived ? 'var(--text-secondary)' : 'var(--danger)', fontWeight: 500 }}>
                     {isArchived
                       ? t('📦 This group is archived — it is read-only until the creator restores it.')
                       : (isSuperAdmin() ? t('🚫 This group is closed — as Super Admin you can still act on it, but others cannot.') : t('🚫 This group is closed. No one can post, edit, or add members until it is reopened.'))}
@@ -666,7 +666,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                     onClick={() => removeAssignee(u.id)}
                                     disabled={assigneeBusy}
                                     title={t("Remove assignee")}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: '0 4px' }}
                                   >✕</button>
                                 )}
                               </div>
@@ -712,7 +712,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                         onClick={() => removeMention(u.id)}
                                         disabled={mentionBusy}
                                         title={t("Remove mention")}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12, padding: 0, lineHeight: 1 }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, padding: 0, lineHeight: 1 }}
                                       >✕</button>
                                     )}
                                   </span>
@@ -811,7 +811,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                                   <button
                                     onClick={() => deleteChecklistItem(item.id)}
                                     title={t("Remove item")}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: '0 4px' }}
                                   >✕</button>
                                 )}
                               </div>
@@ -849,7 +849,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               <span style={{ fontSize: 20 }}>{fileIcon(att.file_type)}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <button type="button" onClick={() => openAttachment(att)}
-                                  style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)', wordBreak: 'break-all', background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
+                                  style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent-ink)', wordBreak: 'break-all', background: 'none', border: 'none', padding: 0, textAlign: 'start', cursor: 'pointer' }}>
                                   {att.file_name}
                                 </button>
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -858,7 +858,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                               </div>
                               {(isAdminOrAbove() || att.user?.id === user?.id) && (
                                 <button onClick={() => deleteAttachment(att.id)}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }}>🗑️</button>
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16 }}>🗑️</button>
                               )}
                             </div>
                           ))}
@@ -869,7 +869,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           <input type="file" style={{ display: 'none' }} onChange={uploadFile} disabled={uploading}
                             accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" />
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13,
-                            color: uploading ? 'var(--text-secondary)' : 'var(--accent)',
+                            color: uploading ? 'var(--text-secondary)' : 'var(--accent-ink)',
                             border: '1px dashed var(--border-color)', borderRadius: 8, padding: '8px 14px',
                             cursor: uploading ? 'not-allowed' : 'pointer' }}>
                             📎 {uploading ? t('Uploading...') : t('Add Attachment')}
@@ -890,15 +890,15 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           onClick={() => setIsQuestion(false)}
                           style={{ fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '1px solid var(--border-color)',
                             background: !isQuestion ? 'var(--accent)' : 'transparent',
-                            color: !isQuestion ? '#fff' : 'var(--text-secondary)', cursor: 'pointer' }}
+                            color: !isQuestion ? 'var(--on-accent)' : 'var(--text-secondary)', cursor: 'pointer' }}
                         >
                           {t('💬 Comment')}
                         </button>
                         <button
                           onClick={() => setIsQuestion(true)}
                           style={{ fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '1px solid var(--border-color)',
-                            background: isQuestion ? '#f59e0b' : 'transparent',
-                            color: isQuestion ? '#fff' : 'var(--text-secondary)', cursor: 'pointer' }}
+                            background: isQuestion ? 'var(--warning)' : 'transparent',
+                            color: isQuestion ? 'var(--on-warning)' : 'var(--text-secondary)', cursor: 'pointer' }}
                         >
                           {t('❓ Ask a Question')}
                         </button>
@@ -1085,7 +1085,7 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
   const isMyReplyOpen = replyTo?.id === comment.id;
 
   return (
-    <div style={{ background: comment.is_question ? '#fef3c710' : 'var(--bg-primary)', border: `1px solid ${comment.is_question ? (comment.is_answered ? '#10b98130' : '#f59e0b40') : 'var(--border-color)'}`, borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: comment.is_question ? 'var(--warning-light)' : 'var(--bg-primary)', border: `1px solid ${comment.is_question ? (comment.is_answered ? 'color-mix(in srgb, var(--accent-ink) 35%, transparent)' : 'color-mix(in srgb, var(--warning) 35%, transparent)') : 'var(--border-color)'}`, borderRadius: 10, overflow: 'hidden' }}>
       {/* Comment header */}
       <div style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -1094,7 +1094,7 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>{comment.user?.name}</span>
               {comment.is_question && (
-                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: comment.is_answered ? '#d1fae5' : '#fef3c7', color: comment.is_answered ? '#059669' : '#d97706', fontWeight: 600 }}>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: comment.is_answered ? 'var(--accent-light)' : 'var(--warning-light)', color: comment.is_answered ? 'var(--accent-ink)' : 'var(--warning)', fontWeight: 600 }}>
                   {comment.is_answered ? t('✅ Answered') : t('❓ Question')}
                 </span>
               )}
@@ -1112,18 +1112,18 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
         {/* Actions */}
         <div className="d-flex gap-2 mt-2" style={{ paddingInlineStart: 42 }}>
           <button onClick={() => onSetReply(isMyReplyOpen ? null : { id: comment.id, user: comment.user })}
-            style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
+            style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-ink)' }}>
             {t('↩ Reply')}
           </button>
           {canResolve && (
             <button onClick={() => onResolve(comment.id)}
-              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#10b981' }}>
+              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success)' }}>
               {t('✅ Mark Answered')}
             </button>
           )}
           {canDelete && (
             <button onClick={() => onDelete(comment.id)}
-              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+              style={{ fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
               {t('🗑️ Delete')}
             </button>
           )}
@@ -1186,7 +1186,7 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
 /* ── Workflow Panel ──────────────────────────────────────────────────────────  */
 
 function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, showCompleteForm, setShowCompleteForm, onComplete, completing, taskCompleted }) {
-  const stepColors = { waiting: '#94a3b8', active: '#6366f1', completed: '#10b981' };
+  const stepColors = { waiting: 'var(--text-muted)', active: 'var(--accent-ink)', completed: 'var(--accent-ink)' };
 
   return (
     <div>
@@ -1201,26 +1201,26 @@ function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, s
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 40 }}>
               <div style={{
                 width: 36, height: 36, borderRadius: '50%', flexShrink: 0, zIndex: 1,
-                background: step.status === 'completed' ? '#10b981' : step.status === 'active' ? '#6366f1' : 'var(--bg-secondary)',
+                background: step.status === 'completed' ? 'var(--accent)' : 'var(--bg-secondary)',
                 border: `2px solid ${stepColors[step.status]}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: step.status === 'waiting' ? stepColors.waiting : '#fff',
+                color: step.status === 'completed' ? 'var(--on-accent)' : stepColors[step.status],
                 fontWeight: 700, fontSize: 14,
               }}>
                 {step.status === 'completed' ? '✓' : step.step_order}
               </div>
               {idx < steps.length - 1 && (
-                <div style={{ width: 2, flex: 1, minHeight: 24, background: step.status === 'completed' ? '#10b981' : 'var(--border-color)' }} />
+                <div style={{ width: 2, flex: 1, minHeight: 24, background: step.status === 'completed' ? 'var(--accent)' : 'var(--border-color)' }} />
               )}
             </div>
 
             <div style={{ flex: 1, marginInlineStart: 14, paddingBottom: idx < steps.length - 1 ? 20 : 0 }}>
-              <div style={{ background: step.status === 'active' ? '#6366f110' : 'var(--bg-primary)', border: `1px solid ${step.status === 'active' ? '#6366f1' : 'var(--border-color)'}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ background: step.status === 'active' ? 'var(--accent-light)' : 'var(--bg-primary)', border: `1px solid ${step.status === 'active' ? 'var(--accent-ink)' : 'var(--border-color)'}`, borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <UserAvatar user={step.user} size={28} />
                   <div style={{ flex: 1 }}>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{step.user?.name}</span>
-                    <span style={{ marginInlineStart: 8, fontSize: 11, padding: '2px 8px', borderRadius: 20, background: stepColors[step.status] + '20', color: stepColors[step.status], fontWeight: 600 }}>
+                    <span style={{ marginInlineStart: 8, fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `color-mix(in srgb, ${stepColors[step.status]} 15%, transparent)`, color: stepColors[step.status], fontWeight: 600 }}>
                       {step.status === 'waiting' ? t('⏳ Waiting') : step.status === 'active' ? t('🔵 Active') : t('✅ Done')}
                     </span>
                   </div>
@@ -1238,18 +1238,18 @@ function WorkflowPanel({ steps, myActiveStep, completeNotes, setCompleteNotes, s
       </div>
 
       {taskCompleted && (
-        <div style={{ marginTop: 20, padding: '14px 18px', background: '#d1fae5', borderRadius: 10, border: '1px solid #10b981', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ marginTop: 20, padding: '14px 18px', background: 'var(--accent-light)', borderRadius: 10, border: '1px solid var(--accent-ink)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 24 }}>🎉</span>
           <div>
-            <div style={{ fontWeight: 700, color: '#059669' }}>{t('All steps completed!')}</div>
-            <div style={{ fontSize: 12, color: '#047857' }}>{t('This task has been fully completed.')}</div>
+            <div style={{ fontWeight: 700, color: 'var(--accent-ink)' }}>{t('All steps completed!')}</div>
+            <div style={{ fontSize: 12, color: 'var(--accent-ink)' }}>{t('This task has been fully completed.')}</div>
           </div>
         </div>
       )}
 
       {myActiveStep && !taskCompleted && (
-        <div style={{ marginTop: 24, padding: '18px', background: '#6366f110', borderRadius: 12, border: '2px solid #6366f1' }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#6366f1', marginBottom: 4 }}>{t("🔵 It's your turn!")}</div>
+        <div style={{ marginTop: 24, padding: '18px', background: 'var(--accent-light)', borderRadius: 12, border: '2px solid var(--accent-ink)' }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent-ink)', marginBottom: 4 }}>{t("🔵 It's your turn!")}</div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>{t('You are on Step')} {myActiveStep.step_order}.</div>
           {!showCompleteForm ? (
             <button onClick={() => setShowCompleteForm(true)} className="btn-accent" style={{ fontSize: 14 }}>
@@ -1330,5 +1330,5 @@ function MetaRow({ icon, label, value }) {
 }
 
 function YouBadge() {
-  return <span style={{ fontSize: 11, background: 'var(--accent)20', color: 'var(--accent)', padding: '1px 7px', borderRadius: 20 }}>{t('You')}</span>;
+  return <span style={{ fontSize: 11, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '1px 7px', borderRadius: 20 }}>{t('You')}</span>;
 }

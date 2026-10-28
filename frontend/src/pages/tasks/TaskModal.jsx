@@ -105,12 +105,12 @@ export default function TaskModal({ task, onClose, onSaved }) {
     borderBottom: tab === t ? '2px solid var(--accent)' : '2px solid transparent',
     background: 'none',
     cursor: 'pointer',
-    color: tab === t ? 'var(--accent)' : 'var(--text-secondary)',
+    color: tab === t ? 'var(--accent-ink)' : 'var(--text-secondary)',
     transition: 'all 0.15s',
   });
 
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="modal show d-block" style={{ background: 'var(--scrim)' }}>
       <div className="modal-dialog modal-lg modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header" style={{ paddingBottom: 0, flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -124,7 +124,7 @@ export default function TaskModal({ task, onClose, onSaved }) {
               <button style={tabStyle('workflow')} onClick={() => setTab('workflow')}>
                 {t('🔄 Workflow Chain')}
                 {enableWorkflow && (
-                  <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
+                  <span style={{ marginInlineStart: 6, background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 20, padding: '1px 7px', fontSize: 10 }}>
                     {workflowSteps.length}
                   </span>
                 )}

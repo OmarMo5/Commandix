@@ -144,7 +144,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
           padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14,
           cursor: 'pointer',
           borderBottom: expanded ? '1px solid var(--border-color)' : 'none',
-          background: isMyDept ? 'var(--accent)05' : 'transparent',
+          background: isMyDept ? 'color-mix(in srgb, var(--accent) 4%, transparent)' : 'transparent',
         }}
         onClick={onToggle}
       >
@@ -155,7 +155,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
           border: '1px solid var(--border-color)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 22,
-          color: isMyDept ? '#fff' : 'var(--text-secondary)',
+          color: isMyDept ? 'var(--on-accent)' : 'var(--text-secondary)',
         }}>
           🏢
         </div>
@@ -166,7 +166,7 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
             {isMyDept && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: 'var(--accent)20', color: 'var(--accent)',
+                background: 'var(--accent-light)', color: 'var(--accent-ink)',
               }}>
                 {t('Your Department')}
               </span>
@@ -218,13 +218,13 @@ function DeptCard({ dept, expanded, onToggle, onEdit, onDelete, isAdmin, current
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>
                       {manager.name}
-                      {manager.id === currentUserId && <span style={{ marginInlineStart: 6, fontSize: 11, color: 'var(--accent)' }}>{t('You')}</span>}
+                      {manager.id === currentUserId && <span style={{ marginInlineStart: 6, fontSize: 11, color: 'var(--accent-ink)' }}>{t('You')}</span>}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{manager.email}</div>
                     <span style={{
                       display: 'inline-block', marginTop: 4,
                       fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-                      background: '#6366f120', color: '#6366f1',
+                      background: 'var(--accent-light)', color: 'var(--accent-ink)',
                     }}>
                       {t('Manager')}
                     </span>
@@ -280,8 +280,8 @@ function MemberCard({ member, isMe }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '10px 12px', borderRadius: 10,
-      background: isMe ? 'var(--accent)08' : 'var(--bg-primary)',
-      border: `1px solid ${isMe ? 'var(--accent)40' : 'var(--border-color)'}`,
+      background: isMe ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-primary)',
+      border: `1px solid ${isMe ? 'color-mix(in srgb, var(--accent-ink) 45%, transparent)' : 'var(--border-color)'}`,
     }}>
       <UserAvatar user={member} size={34} />
       <div style={{ minWidth: 0 }}>
@@ -290,13 +290,13 @@ function MemberCard({ member, isMe }) {
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {member.name}
-          {isMe && <span style={{ marginInlineStart: 4, fontSize: 10, color: 'var(--accent)' }}>{t('You')}</span>}
+          {isMe && <span style={{ marginInlineStart: 4, fontSize: 10, color: 'var(--accent-ink)' }}>{t('You')}</span>}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
           {t(member.role?.display_name) || t('Employee')}
         </div>
         {member.is_active === false && (
-          <span style={{ fontSize: 10, color: '#ef4444' }}>{t('Inactive')}</span>
+          <span style={{ fontSize: 10, color: 'var(--danger)' }}>{t('Inactive')}</span>
         )}
       </div>
     </div>
@@ -334,7 +334,7 @@ function DeptFormModal({ dept, users, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="modal show d-block" style={{ background: 'var(--scrim)' }}>
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
@@ -427,7 +427,7 @@ function MessageManagerModal({ onClose }) {
   const selectedMgr = managers.find(m => m.id === Number(selected));
 
   return (
-    <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="modal show d-block" style={{ background: 'var(--scrim)' }}>
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
@@ -458,7 +458,7 @@ function MessageManagerModal({ onClose }) {
                           display: 'flex', alignItems: 'center', gap: 12,
                           padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
                           border: `2px solid ${selected == m.id ? 'var(--accent)' : 'var(--border-color)'}`,
-                          background: selected == m.id ? 'var(--accent)08' : 'var(--bg-primary)',
+                          background: selected == m.id ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-primary)',
                           transition: 'all 0.15s',
                         }}
                       >
@@ -478,7 +478,7 @@ function MessageManagerModal({ onClose }) {
                           </div>
                         </div>
                         {selected == m.id && (
-                          <span style={{ color: 'var(--accent)', fontSize: 18 }}>✓</span>
+                          <span style={{ color: 'var(--accent-ink)', fontSize: 18 }}>✓</span>
                         )}
                       </label>
                     ))}
@@ -490,7 +490,7 @@ function MessageManagerModal({ onClose }) {
                   <label className="form-label">
                     {t('Your Message *')}
                     {selectedMgr && (
-                      <span style={{ marginInlineStart: 6, color: 'var(--accent)', fontWeight: 400 }}>
+                      <span style={{ marginInlineStart: 6, color: 'var(--accent-ink)', fontWeight: 400 }}>
                         {t('→ to')} {selectedMgr.name}
                       </span>
                     )}

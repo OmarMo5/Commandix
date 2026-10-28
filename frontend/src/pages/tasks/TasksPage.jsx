@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
+import { Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import TaskModal from './TaskModal';
@@ -10,9 +11,9 @@ import { EMPTY_FILTERS, filtersToParams } from '../../utils/taskFilters';
 import { t, formatDate, formatDateTime } from '../../i18n';
 
 const COLUMNS = [
-  { key: 'pending',     label: t('Pending'),     icon: '⏳', color: '#f59e0b' },
-  { key: 'in_progress', label: t('In Progress'), icon: '🔄', color: '#3b82f6' },
-  { key: 'completed',   label: t('Completed'),   icon: '✅', color: '#10b981' },
+  { key: 'pending',     label: t('Pending'),     icon: <Clock size={15} />, color: 'var(--text-secondary)' },
+  { key: 'in_progress', label: t('In Progress'), icon: <RefreshCw size={15} />, color: 'var(--text-primary)' },
+  { key: 'completed',   label: t('Completed'),   icon: <CheckCircle2 size={15} />, color: 'var(--accent-ink)' },
 ];
 
 export default function TasksPage() {
@@ -123,9 +124,9 @@ export default function TasksPage() {
               onDrop={e => handleDrop(e, col.key)}
             >
               <div className="kanban-col-header">
-                <span>{col.icon} {col.label}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{col.icon} {col.label}</span>
                 <span style={{
-                  background: col.color + '20', color: col.color,
+                  background: `color-mix(in srgb, ${col.color} 15%, transparent)`, color: col.color,
                   borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700,
                 }}>
                   {tasksByStatus(col.key).length}
@@ -206,7 +207,7 @@ function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart,
             {t(task.priority)}
           </span>
           {task.workflow_enabled && (
-            <span style={{ fontSize: 10, background: '#6366f120', color: '#6366f1', padding: '2px 6px', borderRadius: 20 }}>🔄</span>
+            <span style={{ fontSize: 10, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '2px 6px', borderRadius: 20 }}>🔄</span>
           )}
           <DueBadge task={task} size="sm" />
         </div>
@@ -265,7 +266,7 @@ function TaskCard({ task, onOpen, onEdit, onDelete, onStatusChange, onDragStart,
           )}
         </div>
         {task.due_date && (
-          <span style={{ fontSize: 11, color: task.is_overdue ? '#dc2626' : 'var(--text-secondary)', fontWeight: task.is_overdue ? 600 : 400 }}>
+          <span style={{ fontSize: 11, color: task.is_overdue ? 'var(--danger)' : 'var(--text-secondary)', fontWeight: task.is_overdue ? 600 : 400 }}>
             📅 {formatDate(task.due_date)}
           </span>
         )}

@@ -57,7 +57,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                 {/* Step number */}
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%',
-                  background: 'var(--accent)', color: '#fff',
+                  background: 'var(--accent)', color: 'var(--on-accent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700, flexShrink: 0,
                 }}>
@@ -84,7 +84,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                   ▼
                 </button>
                 <button onClick={() => removeStep(idx)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14 }}>
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 14 }}>
                   ✕
                 </button>
               </div>
@@ -93,21 +93,21 @@ export default function WorkflowSetup({ users, steps, onChange }) {
 
           {/* Chain visual */}
           {steps.length > 1 && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--accent)', textAlign: 'center' }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--accent-ink)', textAlign: 'center' }}>
               {steps.map((s, i) => (
                 <span key={s.user_id}>
                   <strong>{s.name}</strong>
                   {i < steps.length - 1 && <span style={{ margin: '0 6px', color: 'var(--text-secondary)' }}>→</span>}
                 </span>
               ))}
-              <span style={{ marginInlineStart: 6, color: '#10b981' }}>{t('✓ Done')}</span>
+              <span style={{ marginInlineStart: 6, color: 'var(--success)' }}>{t('✓ Done')}</span>
             </div>
           )}
         </div>
       )}
 
       {steps.length < 2 && (
-        <div style={{ fontSize: 12, color: '#f59e0b', marginBottom: 8, padding: '6px 10px', background: '#fef3c720', borderRadius: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--warning)', marginBottom: 8, padding: '6px 10px', background: 'var(--warning-light)', borderRadius: 6 }}>
           {t('⚠️ Workflow needs at least 2 people.')}
         </div>
       )}
@@ -143,7 +143,7 @@ export default function WorkflowSetup({ users, steps, onChange }) {
                 {u.name?.slice(0, 2).toUpperCase()}
               </div>
               <span>{u.name}</span>
-              <span style={{ marginInlineStart: 'auto', color: 'var(--accent)', fontSize: 16 }}>+</span>
+              <span style={{ marginInlineStart: 'auto', color: 'var(--accent-ink)', fontSize: 16 }}>+</span>
             </div>
           ))}
         </div>

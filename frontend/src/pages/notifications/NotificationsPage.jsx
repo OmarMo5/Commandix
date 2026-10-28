@@ -87,7 +87,7 @@ export default function NotificationsPage() {
               display: 'flex',
               alignItems: 'flex-start',
               gap: 14,
-              background: notif.read_at ? 'transparent' : 'var(--accent)08',
+              background: notif.read_at ? 'transparent' : 'color-mix(in srgb, var(--accent) 6%, transparent)',
               cursor: 'pointer',
             }}
             onClick={() => {
@@ -103,7 +103,7 @@ export default function NotificationsPage() {
                 {getNotifText(notif)}
               </div>
               {notif.data?.task_title && (
-                <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--accent-ink)', marginTop: 2 }}>
                   {t('Task:')} {notif.data.task_title}
                 </div>
               )}

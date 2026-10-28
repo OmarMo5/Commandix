@@ -8,6 +8,7 @@ import { Download, TrendingUp, Building2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useTheme } from '../../context/ThemeContext';
 import { t, isRTL } from '../../i18n';
+import { chartTheme, tooltipStyle } from '../../utils/chartTheme';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -57,15 +58,16 @@ export default function ReportsPage() {
     }
   };
 
-  const chartTextColor = dark ? '#94a3b8' : '#64748b';
-  const chartGridColor = dark ? 'rgba(30,42,58,0.8)' : 'rgba(226,232,240,0.8)';
+  const ct = chartTheme(dark);
+  const chartTextColor = ct.text;
+  const chartGridColor = ct.grid;
 
   const departmentChartData = {
     labels: data?.departments?.map(d => d.name) || [],
     datasets: [{
       label: t('Completion Rate (%)'),
       data: data?.departments?.map(d => d.completion_rate) || [],
-      backgroundColor: '#6366f1',
+      backgroundColor: ct.bar,
       borderRadius: 8,
       borderSkipped: false,
     }],
@@ -75,9 +77,7 @@ export default function ReportsPage() {
     plugins: {
       legend: { display: false, rtl: isRTL },
       tooltip: {
-        rtl: isRTL, textDirection: isRTL ? 'rtl' : 'ltr',
-        backgroundColor: dark ? '#1a2234' : '#fff', titleColor: chartTextColor, bodyColor: chartTextColor,
-        borderColor: dark ? '#1e2a3a' : '#e2e8f0', borderWidth: 1,
+        ...tooltipStyle(dark, isRTL),
         callbacks: { label: (ctx) => t('{n}% completed', { n: ctx.parsed.y }) },
       },
     },
@@ -134,7 +134,7 @@ export default function ReportsPage() {
                 <div className="chart-card-subtitle">{t('Percentage of tasks completed')}</div>
               </div>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Building2 size={16} color="var(--accent)" />
+                <Building2 size={16} color="var(--accent-ink)" />
               </div>
             </div>
             <div className="chart-card-body" style={{ maxHeight: 300 }}>

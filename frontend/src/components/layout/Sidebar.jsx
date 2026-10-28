@@ -44,7 +44,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         <div className="brand-icon">
           {logoUrl
             ? <img src={logoUrl} alt={appName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />
-            : <Zap size={20} color="#fff" strokeWidth={2.5} />}
+            : <Zap size={20} color="var(--on-accent)" strokeWidth={2.5} />}
         </div>
         {!collapsed && <span className="brand-name">{appName}</span>}
       </div>

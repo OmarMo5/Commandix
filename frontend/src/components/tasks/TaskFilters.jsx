@@ -139,7 +139,7 @@ export default function TaskFilters({ filters, onChange }) {
               <li key={v.id}>
                 <button type="button" className="dropdown-item d-flex align-items-center justify-content-between gap-2" style={{ fontSize: 13 }} onClick={() => applyView(v)}>
                   <span>{v.name}</span>
-                  <span role="button" title={t("Delete view")} onClick={(e) => deleteView(e, v)} style={{ color: '#ef4444', display: 'inline-flex' }}><Trash2 size={13} /></span>
+                  <span role="button" title={t("Delete view")} onClick={(e) => deleteView(e, v)} style={{ color: 'var(--danger)', display: 'inline-flex' }}><Trash2 size={13} /></span>
                 </button>
               </li>
             ))}
@@ -170,7 +170,7 @@ export default function TaskFilters({ filters, onChange }) {
       {chips.length > 0 && (
         <div className="d-flex flex-wrap gap-2 mt-2">
           {chips.map(c => (
-            <span key={c.key} style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: 20, padding: '3px 6px 3px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+            <span key={c.key} style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent-ink)', borderRadius: 20, padding: '3px 6px 3px 10px', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
               {c.label}
               <button type="button" onClick={() => clearOne(c.key)} title={t("Remove filter")} style={{ background: 'none', border: 'none', color: 'inherit', display: 'inline-flex', padding: 0, cursor: 'pointer' }}>
                 <X size={13} />

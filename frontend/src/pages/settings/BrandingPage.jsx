@@ -70,8 +70,8 @@ export default function BrandingPage() {
           {/* Logo */}
           <div className="profile-section-card mb-4">
             <div className="profile-section-header">
-              <div className="profile-section-icon" style={{ background: 'var(--accent-light)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <Camera size={16} color="var(--accent)" />
+              <div className="profile-section-icon" style={{ background: 'var(--accent-light)', border: '1px solid rgba(0,224,92,0.35)' }}>
+                <Camera size={16} color="var(--accent-ink)" />
               </div>
               <div>
                 <div className="profile-section-title">{t('Logo')}</div>
@@ -87,7 +87,7 @@ export default function BrandingPage() {
                 }}>
                   {displayedLogo
                     ? <img src={displayedLogo} alt={t("Logo")} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <Palette size={26} color="#fff" />}
+                    : <Palette size={26} color="var(--on-accent)" />}
                 </div>
                 <div>
                   <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => fileInputRef.current?.click()}>
@@ -115,8 +115,8 @@ export default function BrandingPage() {
           {/* App name */}
           <div className="profile-section-card">
             <div className="profile-section-header">
-              <div className="profile-section-icon" style={{ background: 'var(--accent-light)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <Type size={16} color="var(--accent)" />
+              <div className="profile-section-icon" style={{ background: 'var(--accent-light)', border: '1px solid rgba(0,224,92,0.35)' }}>
+                <Type size={16} color="var(--accent-ink)" />
               </div>
               <div>
                 <div className="profile-section-title">{t('App Name')}</div>

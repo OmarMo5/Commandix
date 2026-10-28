@@ -90,7 +90,7 @@ export default function GroupsPage() {
 
 function GroupCard({ group, currentUserId, unread, onOpen }) {
   const isClosed = !!group.closed_at;
-  const statusColor = { pending: '#f59e0b', in_progress: '#3b82f6', completed: '#10b981' }[group.status] || '#94a3b8';
+  const statusColor = { pending: 'var(--text-secondary)', in_progress: 'var(--text-primary)', completed: 'var(--accent-ink)' }[group.status] || 'var(--text-muted)';
 
   return (
     <div
@@ -99,16 +99,16 @@ function GroupCard({ group, currentUserId, unread, onOpen }) {
       style={{ cursor: 'pointer', opacity: isClosed || group.archived_at ? 0.7 : 1 }}
     >
       <div className="d-flex justify-content-between align-items-start mb-2">
-        <span style={{ fontSize: 11, background: '#6366f120', color: '#6366f1', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+        <span style={{ fontSize: 11, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
           {t('🔒 Private')}
         </span>
         {isClosed && (
-          <span style={{ fontSize: 11, background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+          <span style={{ fontSize: 11, background: 'var(--danger-light)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
             {t('Closed')}
           </span>
         )}
         {group.archived_at && (
-          <span style={{ fontSize: 11, background: '#64748b20', color: '#64748b', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+          <span style={{ fontSize: 11, background: 'var(--purple-light)', color: 'var(--text-secondary)', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
             {t('Archived')}
           </span>
         )}

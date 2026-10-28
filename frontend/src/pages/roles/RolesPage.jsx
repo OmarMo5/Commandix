@@ -115,7 +115,7 @@ export default function RolesPage() {
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {role.permissions?.map(p => (
-                    <span key={p.id} style={{ fontSize: 11, background: 'var(--accent)15', color: 'var(--accent)', padding: '2px 8px', borderRadius: 20 }}>
+                    <span key={p.id} style={{ fontSize: 11, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '2px 8px', borderRadius: 20 }}>
                       {t(p.display_name)}
                     </span>
                   ))}
@@ -127,7 +127,7 @@ export default function RolesPage() {
       )}
 
       {showModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ background: 'var(--scrim)' }}>
           <div className="modal-dialog modal-lg modal-dialog-scrollable">
             <div className="modal-content">
               <div className="modal-header">

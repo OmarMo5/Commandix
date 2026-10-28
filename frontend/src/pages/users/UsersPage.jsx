@@ -136,7 +136,7 @@ export default function UsersPage() {
                 </td>
                 <td>
                   {u.role ? (
-                    <span style={{ fontSize: 12, background: 'var(--accent)20', color: 'var(--accent)', padding: '2px 10px', borderRadius: 20 }}>
+                    <span style={{ fontSize: 12, background: 'var(--accent-light)', color: 'var(--accent-ink)', padding: '2px 10px', borderRadius: 20 }}>
                       {t(u.role.display_name)}
                     </span>
                   ) : <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>—</span>}
@@ -146,8 +146,8 @@ export default function UsersPage() {
                   <span
                     style={{
                       fontSize: 12, padding: '2px 10px', borderRadius: 20,
-                      background: u.is_active ? '#d1fae5' : '#fee2e2',
-                      color: u.is_active ? '#059669' : '#dc2626',
+                      background: u.is_active ? 'var(--accent-light)' : 'var(--danger-light)',
+                      color: u.is_active ? 'var(--accent-ink)' : 'var(--danger)',
                     }}
                   >
                     {u.is_active ? t('Active') : t('Inactive')}
@@ -184,7 +184,7 @@ export default function UsersPage() {
       </div>
 
       {showModal && (
-        <div className="modal show d-block" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ background: 'var(--scrim)' }}>
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">

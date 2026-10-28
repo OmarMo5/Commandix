@@ -13,58 +13,50 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { t, isRTL, formatDate, formatDateTime } from '../../i18n';
+import { chartTheme, tooltipStyle } from '../../utils/chartTheme';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-// Validated for both light & dark chart surfaces (dataviz skill validator) — do not
-// swap in --accent (indigo) here, it sits too close to purple/blue for CVD separation.
-const ROLE_COLORS = { super_admin: '#a855f7', admin: '#ef4444', manager: '#3b82f6', employee: '#059669' };
+// Stat-card icon tones. Green is the brand colour and only marks "done"; red / amber appear only where the
+// number means "needs attention". Everything else is neutral navy.
+const TONE = {
+  neutral: { color: 'var(--text-primary)', bg: 'var(--bg-primary)', border: 'var(--border-subtle)' },
+  muted:   { color: 'var(--text-secondary)', bg: 'var(--bg-primary)', border: 'var(--border-subtle)' },
+  success: { color: 'var(--on-accent)', bg: 'var(--accent)', border: 'transparent' },
+  danger:  { color: 'var(--danger)', bg: 'var(--danger-light)', border: 'color-mix(in srgb, var(--danger) 25%, transparent)' },
+  warning: { color: 'var(--warning)', bg: 'var(--warning-light)', border: 'color-mix(in srgb, var(--warning) 28%, transparent)' },
+};
 
 const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
   {
     label: t('Total Tasks'),
     value: stats.tasks.total,
     icon: ClipboardList,
-    color: '#6366f1',
-    bg: 'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08))',
-    border: 'rgba(99,102,241,0.25)',
-    gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+    ...TONE.neutral,
   },
   {
     label: t('Pending'),
     value: stats.tasks.pending,
     icon: Clock,
-    color: '#f59e0b',
-    bg: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.06))',
-    border: 'rgba(245,158,11,0.2)',
-    gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    ...TONE.muted,
   },
   {
     label: t('In Progress'),
     value: stats.tasks.in_progress,
     icon: Zap,
-    color: '#3b82f6',
-    bg: 'linear-gradient(135deg,rgba(59,130,246,0.12),rgba(96,165,250,0.06))',
-    border: 'rgba(59,130,246,0.2)',
-    gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
+    ...TONE.neutral,
   },
   {
     label: t('Completed'),
     value: stats.tasks.completed,
     icon: CheckCircle2,
-    color: '#10b981',
-    bg: 'linear-gradient(135deg,rgba(16,185,129,0.12),rgba(52,211,153,0.06))',
-    border: 'rgba(16,185,129,0.2)',
-    gradient: 'linear-gradient(135deg,#10b981,#34d399)',
+    ...TONE.success,
   },
   {
     label: t('Overdue'),
     value: stats.tasks.overdue ?? 0,
     icon: AlarmClock,
-    color: '#ef4444',
-    bg: 'linear-gradient(135deg,rgba(239,68,68,0.12),rgba(248,113,113,0.06))',
-    border: 'rgba(239,68,68,0.2)',
-    gradient: 'linear-gradient(135deg,#ef4444,#f87171)',
+    ...TONE.danger,
     badgeText: (stats.tasks.overdue ?? 0) > 0 ? t('Review') : t('Clear'),
     badgeIcon: (stats.tasks.overdue ?? 0) > 0 ? AlertTriangle : CheckCircle2,
   },
@@ -73,19 +65,13 @@ const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
       label: t('Total Users'),
       value: stats.users_count,
       icon: Users,
-      color: '#a855f7',
-      bg: 'linear-gradient(135deg,rgba(168,85,247,0.12),rgba(196,132,252,0.06))',
-      border: 'rgba(168,85,247,0.2)',
-      gradient: 'linear-gradient(135deg,#a855f7,#c084fc)',
+      ...TONE.neutral,
     },
     {
       label: t('Departments'),
       value: stats.departments_count,
       icon: Building2,
-      color: '#06b6d4',
-      bg: 'linear-gradient(135deg,rgba(6,182,212,0.12),rgba(34,211,238,0.06))',
-      border: 'rgba(6,182,212,0.2)',
-      gradient: 'linear-gradient(135deg,#06b6d4,#22d3ee)',
+      ...TONE.neutral,
     },
   ] : []),
   ...(isSuperAdminUser ? [
@@ -93,10 +79,7 @@ const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
       label: t('Inactive Accounts'),
       value: stats.inactive_users_count,
       icon: UserX,
-      color: '#ef4444',
-      bg: 'linear-gradient(135deg,rgba(239,68,68,0.12),rgba(248,113,113,0.06))',
-      border: 'rgba(239,68,68,0.2)',
-      gradient: 'linear-gradient(135deg,#ef4444,#f87171)',
+      ...TONE.danger,
       badgeText: stats.inactive_users_count > 0 ? t('Review') : t('Clear'),
       badgeIcon: AlertTriangle,
     },
@@ -104,10 +87,7 @@ const STAT_DEFS = (stats, isAdminUser, isSuperAdminUser) => [
       label: t('Depts. w/o Manager'),
       value: stats.unmanaged_departments_count,
       icon: AlertTriangle,
-      color: '#f59e0b',
-      bg: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.06))',
-      border: 'rgba(245,158,11,0.2)',
-      gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
+      ...TONE.warning,
       badgeText: stats.unmanaged_departments_count > 0 ? t('Review') : t('Clear'),
       badgeIcon: AlertTriangle,
     },
@@ -120,7 +100,7 @@ function StatCard({ stat }) {
   return (
     <div
       className="stat-card"
-      style={{ '--stat-color': stat.gradient, cursor: 'default' }}
+      style={{ cursor: 'default' }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div>
@@ -174,15 +154,17 @@ export default function DashboardPage() {
   const adminStats = allStats.slice(5);
   const adminCols = adminStats.length === 2 ? 'col-12 col-sm-6' : 'col-6 col-lg-3';
 
-  const chartTextColor = dark ? '#94a3b8' : '#64748b';
-  const chartGridColor = dark ? 'rgba(30,42,58,0.8)' : 'rgba(226,232,240,0.8)';
+  const ct = chartTheme(dark);
+  const chartTextColor = ct.text;
+  const chartGridColor = ct.grid;
 
   const taskStatusData = {
     labels: [t('Pending'), t('In Progress'), t('Completed')],
     datasets: [{
       data: [stats.tasks.pending, stats.tasks.in_progress, stats.tasks.completed],
-      backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
-      borderWidth: 0,
+      backgroundColor: ct.status,
+      borderWidth: 2,
+      borderColor: ct.surface,
       hoverOffset: 6,
     }],
   };
@@ -192,7 +174,7 @@ export default function DashboardPage() {
     datasets: [{
       label: t('Tasks'),
       data: [stats.tasks_by_priority.low, stats.tasks_by_priority.medium, stats.tasks_by_priority.high],
-      backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+      backgroundColor: ct.priority,
       borderRadius: 8,
       borderSkipped: false,
     }],
@@ -203,8 +185,9 @@ export default function DashboardPage() {
     labels: roleDistribution.map(r => r.role),
     datasets: [{
       data: roleDistribution.map(r => r.count),
-      backgroundColor: roleDistribution.map(r => ROLE_COLORS[r.slug] || '#94a3b8'),
-      borderWidth: 0,
+      backgroundColor: roleDistribution.map(r => ct.roles[r.slug] || ct.roleFallback),
+      borderWidth: 2,
+      borderColor: ct.surface,
       hoverOffset: 6,
     }],
   };
@@ -217,7 +200,7 @@ export default function DashboardPage() {
         textDirection: isRTL ? 'rtl' : 'ltr',
         labels: { color: chartTextColor, font: { size: 12 }, padding: 16, boxWidth: 10, boxHeight: 10 },
       },
-      tooltip: { rtl: isRTL, textDirection: isRTL ? 'rtl' : 'ltr', backgroundColor: dark ? '#1a2234' : '#fff', titleColor: chartTextColor, bodyColor: chartTextColor, borderColor: dark ? '#1e2a3a' : '#e2e8f0', borderWidth: 1 },
+      tooltip: tooltipStyle(dark, isRTL),
     },
     cutout: '68%',
     maintainAspectRatio: true,
@@ -226,7 +209,7 @@ export default function DashboardPage() {
   const barOptions = {
     plugins: {
       legend: { display: false, rtl: isRTL },
-      tooltip: { rtl: isRTL, textDirection: isRTL ? 'rtl' : 'ltr', backgroundColor: dark ? '#1a2234' : '#fff', titleColor: chartTextColor, bodyColor: chartTextColor, borderColor: dark ? '#1e2a3a' : '#e2e8f0', borderWidth: 1 },
+      tooltip: tooltipStyle(dark, isRTL),
     },
     scales: {
       x: { reverse: isRTL, grid: { display: false }, ticks: { color: chartTextColor, font: { size: 12 } }, border: { display: false } },
@@ -293,10 +276,10 @@ export default function DashboardPage() {
               </div>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: 'var(--accent-light)', display: 'flex',
+                background: 'var(--bg-primary)', display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <Activity size={16} color="var(--accent)" />
+                <Activity size={16} color="var(--text-secondary)" />
               </div>
             </div>
             <div className="chart-card-body" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', maxHeight: 280 }}>
@@ -316,10 +299,10 @@ export default function DashboardPage() {
               </div>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: 'var(--warning-light)', display: 'flex',
+                background: 'var(--bg-primary)', display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <TrendingUp size={16} color="var(--warning)" />
+                <TrendingUp size={16} color="var(--text-secondary)" />
               </div>
             </div>
             <div className="chart-card-body" style={{ maxHeight: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -340,10 +323,10 @@ export default function DashboardPage() {
                 </div>
                 <div style={{
                   width: 32, height: 32, borderRadius: 8,
-                  background: 'var(--purple-light)', display: 'flex',
+                  background: 'var(--bg-primary)', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Users size={16} color="var(--purple)" />
+                  <Users size={16} color="var(--text-secondary)" />
                 </div>
               </div>
               <div className="chart-card-body" style={{ display: 'flex', justifyContent: 'center', maxHeight: 280 }}>
