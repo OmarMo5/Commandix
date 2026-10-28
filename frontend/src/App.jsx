@@ -24,6 +24,7 @@ const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const BrandingPage = lazy(() => import('./pages/settings/BrandingPage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
+const MessagesPage = lazy(() => import('./pages/messages/MessagesPage'));
 
 export default function App() {
   return (
@@ -41,6 +42,8 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/tasks" element={<TasksPage />} />
                   <Route path="/groups" element={<GroupsPage />} />
+                  <Route path="/messages" element={<MessagesPage />} />
+                  <Route path="/messages/:id" element={<MessagesPage />} />
                   <Route path="/departments" element={<DepartmentsPage />} />
                   <Route path="/users" element={<UsersPage />} />
                   <Route element={<SuperAdminRoute />}>

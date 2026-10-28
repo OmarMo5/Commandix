@@ -10,10 +10,10 @@ import { t } from '../i18n';
 // Everything that shows "something new" — bell, sidebar badge, group cards, open pages —
 // reads from this single poll instead of running its own timer.
 
-const EMPTY = { unread_count: 0, latest_id: 0, groups_unread: {}, tasks_unread: {} };
+const EMPTY = { unread_count: 0, latest_id: 0, groups_unread: {}, tasks_unread: {}, dm_unread: {} };
 const POLL_MS = 10_000;
 
-const LiveContext = createContext({ ...EMPTY, groupsUnreadTotal: 0, refresh: () => {} });
+const LiveContext = createContext({ ...EMPTY, groupsUnreadTotal: 0, dmUnreadTotal: 0, refresh: () => {} });
 
 export function LiveProvider({ children }) {
   const { user } = useAuth();
@@ -31,6 +31,12 @@ export function LiveProvider({ children }) {
         toast.info(n === 1 ? t('You have a new notification') : t('You have {n} new notifications', { n }), {
           onClick: () => navigate('/notifications'),
         });
+      }
+
+      // A new direct message — unless you are already in the Messages page, where it simply appears.
+      const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
+      if (before && sum(data.dm_unread) > sum(before.dm_unread) && !window.location.pathname.startsWith('/messages')) {
+        toast.info(t('You have a new message'), { onClick: () => navigate('/messages') });
       }
 
       previous.current = data;
@@ -62,6 +68,7 @@ export function LiveProvider({ children }) {
     return {
       ...live,
       groupsUnreadTotal: Object.values(live.groups_unread || {}).reduce((a, b) => a + b, 0),
+      dmUnreadTotal: Object.values(live.dm_unread || {}).reduce((a, b) => a + b, 0),
       refresh,
     };
   }, [user, summary, refresh]);

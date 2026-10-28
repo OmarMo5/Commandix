@@ -1,18 +1,22 @@
-import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, CheckSquare, Bell, Building2,
   Users, ShieldCheck, FolderOpen, Activity,
-  User, ChevronLeft, ChevronRight, Zap, Palette, BarChart3, Lock
+  User, ChevronLeft, ChevronRight, Zap, Palette, BarChart3, Lock, MessageSquare, Plus
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLive } from '../../context/LiveContext';
+import api from '../../api/axios';
+import Avatar from '../common/Avatar';
 import { t } from '../../i18n';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: t('Dashboard'), section: 'Main', managerOnly: true },
   { path: '/tasks', icon: CheckSquare, label: t('My Tasks'), section: 'Main' },
   { path: '/groups', icon: Lock, label: t('Private Groups'), section: 'Main' },
+  { path: '/messages', icon: MessageSquare, label: t('Messages'), section: 'Main', exact: true },
   { path: '/notifications', icon: Bell, label: t('Notifications'), section: 'Main' },
   { path: '/departments', icon: Building2, label: t('Departments'), section: 'Management' },
   { path: '/users', icon: Users, label: t('Users'), section: 'Management', adminOnly: true },
@@ -25,9 +29,24 @@ const navItems = [
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
-  const { isAdminOrAbove, isSuperAdmin, isManager } = useAuth();
+  const { user, isAdminOrAbove, isSuperAdmin, isManager } = useAuth();
   const { appName, logoUrl } = useSettings();
-  const { groupsUnreadTotal } = useLive();
+  const { groupsUnreadTotal, dmUnreadTotal, dm_unread: dmUnread } = useLive();
+  const navigate = useNavigate();
+  const [dms, setDms] = useState([]);
+  const [dmTick, setDmTick] = useState(0);
+  const dmSignature = JSON.stringify(dmUnread || {});
+
+  // Recent conversations: refetch when an unread count changes or the Messages page says something changed.
+  useEffect(() => {
+    if (!user) return;
+    api.get('/dm').then((r) => setDms(r.data.slice(0, 6))).catch(() => {});
+  }, [user?.id, dmSignature, dmTick]);
+  useEffect(() => {
+    const bump = () => setDmTick((n) => n + 1);
+    window.addEventListener('dm:changed', bump);
+    return () => window.removeEventListener('dm:changed', bump);
+  }, []);
   const sections = [...new Set(navItems.map(i => i.section))];
 
   const isVisible = (item) => {
@@ -63,6 +82,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                   <NavLink
                     key={item.path}
                     to={item.path}
+                    end={item.exact}
                     className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                     title={collapsed ? item.label : undefined}
                   >
@@ -70,6 +90,11 @@ export default function Sidebar({ collapsed, onToggle }) {
                       <Icon size={18} strokeWidth={1.8} />
                     </span>
                     {!collapsed && <span>{item.label}</span>}
+                    {item.path === '/messages' && dmUnreadTotal > 0 && (
+                      <span className="nav-badge" title={t('{n} unread message(s)', { n: dmUnreadTotal })}>
+                        {collapsed ? '' : dmUnreadTotal > 99 ? '99+' : dmUnreadTotal}
+                      </span>
+                    )}
                     {item.path === '/groups' && groupsUnreadTotal > 0 && (
                       <span className="nav-badge" title={t('{n} unread group message(s)', { n: groupsUnreadTotal })}>
                         {collapsed ? '' : groupsUnreadTotal > 99 ? '99+' : groupsUnreadTotal}
@@ -81,6 +106,29 @@ export default function Sidebar({ collapsed, onToggle }) {
             </div>
           );
         })}
+
+        {/* Direct messages — recent conversations, one click to open */}
+        {!collapsed && (
+          <div>
+            <div className="nav-section">{t('Direct Messages')}</div>
+            {dms.map((c) => (
+              <NavLink
+                key={c.id}
+                to={`/messages/${c.id}`}
+                className={({ isActive }) => `nav-item dm-nav-item ${isActive ? 'active' : ''}`}
+                title={c.user?.name}
+              >
+                <Avatar user={c.user} size={22} />
+                <span className="dm-nav-name">{c.user?.name}</span>
+                {c.unread > 0 && <span className="nav-badge">{c.unread > 99 ? '99+' : c.unread}</span>}
+              </NavLink>
+            ))}
+            <button type="button" className="nav-item dm-nav-item dm-nav-new" onClick={() => navigate('/messages?new=1')}>
+              <span className="nav-icon-wrap"><Plus size={16} strokeWidth={1.8} /></span>
+              <span>{t('New message')}</span>
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* Footer / Collapse button */}
