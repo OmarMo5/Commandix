@@ -60,11 +60,16 @@ function lookup(text, vars) {
   return text;
 }
 
+// A name or task title dropped into an Arabic sentence must not be able to reorder the sentence around it
+// (an English title would otherwise drag the closing quote or "?" to the wrong side). Wrapping inserted
+// text in Unicode isolates (FSI … PDI) keeps each piece laid out on its own. Only matters for RTL.
+const isolate = (value) => (isRTL && typeof value === 'string' && value !== '' ? `\u2068${value}\u2069` : value);
+
 /** Translate `text`; `{name}` placeholders are filled from `vars`. */
 export function t(text, vars) {
   if (typeof text !== 'string' || text === '') return text;
   const out = lookup(text, vars);
-  return vars ? out.replace(/\{(\w+)\}/g, (whole, key) => (vars[key] ?? whole)) : out;
+  return vars ? out.replace(/\{(\w+)\}/g, (whole, key) => (vars[key] == null ? whole : isolate(vars[key]))) : out;
 }
 
 export function setLang(next) {
