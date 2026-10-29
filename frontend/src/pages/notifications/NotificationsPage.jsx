@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useLive } from '../../context/LiveContext';
+import { pathFor, tabFor } from '../../utils/links';
 import { t, formatDate, formatDateTime } from '../../i18n';
 
 const typeIcons = {
@@ -116,7 +117,8 @@ export default function NotificationsPage() {
         refreshCounts();
       }).catch(() => {});
     }
-    if (n.data?.task_id) navigate('/tasks');
+    if (n.target) navigate(pathFor(n.target, tabFor(n.type)));
+    else if (n.data?.task_id) toast.info(t('This task is no longer available'));
   };
 
   const markAllRead = async () => {

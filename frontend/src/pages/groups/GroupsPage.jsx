@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { useLive } from '../../context/LiveContext';
 import GroupModal from './GroupModal';
 import TaskDetailModal from '../tasks/TaskDetailModal';
+import { validTab } from '../../utils/links';
 import { t } from '../../i18n';
 
 export default function GroupsPage() {
   const [groups, setGroups]           = useState([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
-  const [detailId, setDetailId]       = useState(null);
+  // The open group (or a task inside one) is part of the address: /groups/40
+  const { groupId } = useParams();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const detailId = /^\d+$/.test(groupId || '') ? Number(groupId) : null;
   const [tab, setTab]                 = useState('active');   // 'active' | 'archived'
   const { user } = useAuth();
   const { groups_unread, latest_id } = useLive();
@@ -67,7 +73,7 @@ export default function GroupsPage() {
         <div className="row g-3">
           {groups.map(g => (
             <div key={g.id} className="col-md-6 col-lg-4">
-              <GroupCard group={g} currentUserId={user?.id} unread={groups_unread[g.id] || 0} onOpen={() => setDetailId(g.id)} />
+              <GroupCard group={g} currentUserId={user?.id} unread={groups_unread[g.id] || 0} onOpen={() => navigate(`/groups/${g.id}`)} />
             </div>
           ))}
         </div>
@@ -79,8 +85,10 @@ export default function GroupsPage() {
 
       {detailId && (
         <TaskDetailModal
+          key={detailId}
           taskId={detailId}
-          onClose={() => setDetailId(null)}
+          initialTab={validTab(new URLSearchParams(search).get('tab'))}
+          onClose={() => navigate('/groups')}
           onStatusChanged={fetchGroups}
         />
       )}

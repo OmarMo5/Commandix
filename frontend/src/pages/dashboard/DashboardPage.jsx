@@ -375,7 +375,7 @@ export default function DashboardPage() {
                     const s = statusBadgeMap[task.status] || { cls: '', label: task.status };
                     const p = priorityBadgeMap[task.priority] || { cls: '', label: task.priority };
                     return (
-                      <tr key={task.id} style={{ cursor: 'pointer' }} onClick={() => navigate('/tasks')}>
+                      <tr key={task.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/tasks/${task.id}`)}>
                         <td>
                           <div style={{ fontWeight: 600, fontSize: 13.5 }}>{task.title}</div>
                           <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>

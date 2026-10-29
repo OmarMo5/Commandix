@@ -40,8 +40,8 @@ export default function App() {
                 <Route element={<AppLayout />}>
                   <Route path="/home" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/groups" element={<GroupsPage />} />
+                  <Route path="/tasks/:taskId?" element={<TasksPage />} />
+                  <Route path="/groups/:groupId?" element={<GroupsPage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/messages/:id" element={<MessagesPage />} />
                   <Route path="/departments" element={<DepartmentsPage />} />

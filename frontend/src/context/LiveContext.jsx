@@ -36,7 +36,8 @@ export function LiveProvider({ children }) {
       // A new direct message — unless you are already in the Messages page, where it simply appears.
       const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
       if (before && sum(data.dm_unread) > sum(before.dm_unread) && !window.location.pathname.startsWith('/messages')) {
-        toast.info(t('You have a new message'), { onClick: () => navigate('/messages') });
+        const risen = Object.keys(data.dm_unread || {}).filter((id) => (data.dm_unread[id] || 0) > ((before.dm_unread || {})[id] || 0));
+        toast.info(t('You have a new message'), { onClick: () => navigate(risen.length === 1 ? `/messages/${risen[0]}` : '/messages') });
       }
 
       previous.current = data;

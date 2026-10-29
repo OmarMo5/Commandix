@@ -2,6 +2,10 @@
 // Anything missing falls back to the English text (see ./index.js).
 const ar = {
   "Loading...": "جارٍ التحميل...",
+  "Copy link": "نسخ الرابط",
+  "Link copied": "تم نسخ الرابط",
+  "Copy this link": "انسخ هذا الرابط",
+  "This task is no longer available": "هذه المهمة لم تعد متاحة",
   "Assigned to me": "المسندة إليّ",
   "Today & Overdue": "اليوم والمتأخرة",
   "Overdue & due today": "متأخرة أو مستحقة اليوم",

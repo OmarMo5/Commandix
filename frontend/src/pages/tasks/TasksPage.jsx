@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import api from '../../api/axios';
@@ -9,6 +9,7 @@ import TaskDetailModal from './TaskDetailModal';
 import DueBadge from '../../components/common/DueBadge';
 import TaskFilters from '../../components/tasks/TaskFilters';
 import { EMPTY_FILTERS, VIEW_PRESETS, filtersToParams } from '../../utils/taskFilters';
+import { validTab, keepSearch } from '../../utils/links';
 import { t, formatDate, formatDateTime } from '../../i18n';
 
 const COLUMNS = [
@@ -22,7 +23,13 @@ export default function TasksPage() {
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
   const [editTask, setEditTask]       = useState(null);
-  const [detailTaskId, setDetailTaskId] = useState(null);
+  // The open task is part of the address (/tasks/57), so it can be linked to; the board behind keeps its filters.
+  const { taskId } = useParams();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const detailTaskId = /^\d+$/.test(taskId || '') ? Number(taskId) : null;
+  const openDetail = (id) => navigate({ pathname: `/tasks/${id}`, search: keepSearch(search) });
+  const closeDetail = () => navigate({ pathname: '/tasks', search: keepSearch(search) });
   const [savedFilters, setSavedFilters] = useState(() => {
     try { return { ...EMPTY_FILTERS, ...JSON.parse(localStorage.getItem('tasks.filters')) }; } catch { return EMPTY_FILTERS; }
   });
@@ -163,7 +170,7 @@ export default function TasksPage() {
                   <TaskCard
                     key={task.id}
                     task={task}
-                    onOpen={() => setDetailTaskId(task.id)}
+                    onOpen={() => openDetail(task.id)}
                     onEdit={() => { setEditTask(task); setShowModal(true); }}
                     onDelete={() => deleteTask(task.id)}
                     onStatusChange={updateStatus}
@@ -183,8 +190,10 @@ export default function TasksPage() {
 
       {detailTaskId && (
         <TaskDetailModal
+          key={detailTaskId}
           taskId={detailTaskId}
-          onClose={() => setDetailTaskId(null)}
+          initialTab={validTab(new URLSearchParams(search).get('tab'))}
+          onClose={closeDetail}
           onStatusChanged={fetchTasks}
         />
       )}

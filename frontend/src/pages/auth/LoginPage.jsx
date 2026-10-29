@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Mail, Lock, Zap, LogIn, ShieldCheck, Users2, ListChecks, Eye, EyeOff, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -41,6 +41,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { appName, logoUrl } = useSettings();
   const navigate = useNavigate();
+  const from = useLocation().state?.from;
   const year = new Date().getFullYear();
 
   const handleSubmit = async (e) => {
@@ -48,7 +49,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(form.email, form.password);
-      navigate('/dashboard');
+      // Back to the page a link pointed at (internal paths only), otherwise the dashboard.
+      navigate(typeof from === 'string' && /^\/(?!\/|login)/.test(from) ? from : '/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.message || t('Invalid credentials'));
     } finally {

@@ -8,18 +8,19 @@ import { openAttachment } from '../../utils/downloadAttachment';
 import { useLive } from '../../context/LiveContext';
 import MentionTextarea from '../../components/common/MentionTextarea';
 import { extractMentionIds, splitMentions } from '../../utils/mentions';
-import { Pencil } from 'lucide-react';
+import { Pencil, Link2 } from 'lucide-react';
 import { t, formatDate, formatDateTime } from '../../i18n';
 import ReactionBar from '../../components/common/ReactionBar';
+import { taskPath } from '../../utils/links';
 
 const priorityBadge = { low: 'badge-low', medium: 'badge-medium', high: 'badge-high' };
 const statusBadge   = { pending: 'badge-pending', in_progress: 'badge-in_progress', completed: 'badge-completed' };
 const statusLabel   = { pending: t('Pending'), in_progress: t('In Progress'), completed: t('Completed') };
 
-export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
+export default function TaskDetailModal({ taskId, onClose, onStatusChanged, initialTab }) {
   const [task, setTask]               = useState(null);
   const [loading, setLoading]         = useState(true);
-  const [tab, setTab]                 = useState('details');
+  const [tab, setTab]                 = useState(initialTab || 'details');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [uploading, setUploading]     = useState(false);
   const [completeNotes, setCompleteNotes] = useState('');
@@ -64,6 +65,16 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
   const [editForm, setEditForm]             = useState({ title: '', description: '' });
   const [savingEdit, setSavingEdit]         = useState(false);
   const [groupBusy, setGroupBusy]           = useState(false);
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}${taskPath(task)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('Link copied'));
+    } catch {
+      window.prompt(t('Copy this link'), url);   // clipboard blocked (e.g. plain http) — let them copy it by hand
+    }
+  };
 
   const loadTask = () =>
     api.get(`/tasks/${taskId}`)
@@ -568,6 +579,10 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                     )}
                     <h5 style={{ fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {task.title}
+                      <button type="button" onClick={copyLink} title={t('Copy link')} aria-label={t('Copy link')}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', padding: 2 }}>
+                        <Link2 size={14} />
+                      </button>
                       {canRename && (
                         <button type="button" onClick={startEdit} title={t("Rename / edit description")}
                           style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', padding: 2 }}>

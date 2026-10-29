@@ -86,7 +86,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                 // The three /tasks links share a path, so "active" also has to look at ?view=.
                 const sharesTasksPath = item.path === '/tasks';
                 const activeFor = (routerActive) => (sharesTasksPath
-                  ? pathname === '/tasks' && (item.view ? currentView === item.view : !VIEW_PRESETS[currentView])
+                  ? /^\/tasks(\/|$)/.test(pathname) && (item.view ? currentView === item.view : !VIEW_PRESETS[currentView])
                   : routerActive);
                 if (item.sub) {
                   return (
