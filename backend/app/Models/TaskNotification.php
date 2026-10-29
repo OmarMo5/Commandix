@@ -12,13 +12,13 @@ class TaskNotification extends Model
     protected $fillable = ['user_id', 'type', 'data', 'read_at', 'cleared_at', 'later_at', 'snoozed_until'];
 
     /** Informational events that need no action from you — they live in the "Other" tab. */
-    public const OTHER_TYPES = ['task_completed', 'workflow_progress', 'workflow_finished', 'group_member_left'];
+    public const OTHER_TYPES = ['task_completed', 'workflow_progress', 'workflow_finished', 'group_member_left', 'comment_reaction'];
 
     /** Filter chips in the inbox: group name => notification types. */
     public const GROUPS = [
         'assigned'  => ['task_assigned'],
         'mentions'  => ['task_mentioned', 'comment_mention'],
-        'comments'  => ['task_comment', 'task_question'],
+        'comments'  => ['task_comment', 'task_question', 'comment_reaction'],
         'reminders' => ['task_due_soon', 'task_overdue'],
         'workflow'  => ['workflow_turn', 'workflow_progress', 'workflow_finished'],
         'messages'  => ['manager_message'],

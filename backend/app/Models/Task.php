@@ -108,7 +108,7 @@ class Task extends Model
 
     public function comments()
     {
-        return $this->hasMany(TaskComment::class)->whereNull('parent_id')->with('user:id,name,avatar', 'replies.user:id,name,avatar')->latest();
+        return $this->hasMany(TaskComment::class)->whereNull('parent_id')->with('user:id,name,avatar', 'reactions.user:id,name', 'replies.user:id,name,avatar')->latest();
     }
 
     public function workflowSteps()

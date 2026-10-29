@@ -120,6 +120,7 @@ Route::prefix('v1')->group(function () {
         Route::get('tasks/{taskId}/comments',                         [TaskCommentController::class, 'index']);
         Route::post('tasks/{taskId}/comments',                        [TaskCommentController::class, 'store']);
         Route::put('tasks/{taskId}/comments/{commentId}/resolve',     [TaskCommentController::class, 'resolve']);
+        Route::post('tasks/{taskId}/comments/{commentId}/reactions',  [TaskCommentController::class, 'react']);
         Route::delete('tasks/{taskId}/comments/{commentId}',          [TaskCommentController::class, 'destroy']);
 
         // Attachments

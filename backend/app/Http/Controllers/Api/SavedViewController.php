@@ -16,7 +16,7 @@ class SavedViewController extends Controller
     /** Filter keys the board understands — anything else is dropped on save. */
     private const ALLOWED_FILTERS = [
         'search', 'status', 'priority', 'department_id', 'assignee_id',
-        'creator_id', 'mine', 'due', 'due_from', 'due_to',
+        'creator_id', 'mine', 'assigned_to_me', 'due', 'due_from', 'due_to',
     ];
 
     public function index(Request $request)

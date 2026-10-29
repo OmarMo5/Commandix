@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CommentReaction;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\TaskNotification;
@@ -24,7 +25,7 @@ class TaskCommentController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        $comments = TaskComment::with(['user:id,name,avatar', 'mentionedUsers:id,name', 'replies.user:id,name,avatar'])
+        $comments = TaskComment::with(['user:id,name,avatar', 'mentionedUsers:id,name', 'reactions.user:id,name', 'replies.user:id,name,avatar'])
             ->where('task_id', $taskId)
             ->whereNull('parent_id')   // top-level only
             ->latest()
@@ -79,7 +80,7 @@ class TaskCommentController extends Controller
         ]);
 
         $comment->mentionedUsers()->sync($mentionedIds);
-        $comment->load('user:id,name,avatar', 'mentionedUsers:id,name', 'replies.user:id,name,avatar');
+        $comment->load('user:id,name,avatar', 'mentionedUsers:id,name', 'reactions.user:id,name', 'replies.user:id,name,avatar');
 
         foreach ($mentionedIds->reject(fn($id) => $id === auth()->id()) as $userId) {
             TaskNotification::create([
@@ -150,6 +151,73 @@ class TaskCommentController extends Controller
         }
 
         return $ids->map(fn($id) => (int) $id)->unique()->values();
+    }
+
+    /**
+     * POST /tasks/{taskId}/comments/{commentId}/reactions { emoji }
+     * Toggles my reaction: adds it, or removes it if I already reacted with that emoji.
+     * Works on replies too (a reply is just a comment with a parent). Returns the fresh summary.
+     */
+    public function react(Request $request, string $taskId, string $commentId)
+    {
+        $task = Task::with(['assignees', 'mentions', 'workflowSteps', 'parentGroup', 'parentGroup.assignees'])->findOrFail($taskId);
+        $user = $request->user();
+
+        if (!TaskAccess::canView($user, $task)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (TaskAccess::isLocked($task) && !$user->isSuperAdmin()) {
+            return response()->json(['message' => TaskAccess::lockedMessage($task)], 423);
+        }
+
+        $data = $request->validate(['emoji' => ['required', 'string', Rule::in(CommentReaction::ALLOWED)]]);
+        $comment = TaskComment::where('task_id', $taskId)->findOrFail($commentId);
+
+        $existing = CommentReaction::where(['comment_id' => $comment->id, 'user_id' => $user->id, 'emoji' => $data['emoji']])->first();
+
+        if ($existing) {
+            $existing->delete();
+        } else {
+            CommentReaction::create(['comment_id' => $comment->id, 'user_id' => $user->id, 'emoji' => $data['emoji']]);
+            $this->notifyReaction($task, $comment, $user, $data['emoji']);
+        }
+
+        return response()->json(['reactions' => $comment->fresh()->load('reactions.user:id,name')->reaction_summary]);
+    }
+
+    /** Tell the author — once per (comment, person, emoji) while it is still unread, so toggling can't spam. */
+    private function notifyReaction(Task $task, TaskComment $comment, $reactor, string $emoji): void
+    {
+        if ($comment->user_id === $reactor->id) {
+            return;
+        }
+
+        $already = TaskNotification::where('user_id', $comment->user_id)
+            ->where('type', 'comment_reaction')
+            ->unread()
+            ->get()
+            ->contains(fn($n) => ($n->data['comment_id'] ?? null) === $comment->id
+                && ($n->data['from_id'] ?? null) === $reactor->id
+                && ($n->data['emoji'] ?? null) === $emoji);
+
+        if ($already) {
+            return;
+        }
+
+        TaskNotification::create([
+            'user_id' => $comment->user_id,
+            'type'    => 'comment_reaction',
+            'data'    => [
+                'task_id'    => $task->id,
+                'task_title' => $task->title,
+                'comment_id' => $comment->id,
+                'from_id'    => $reactor->id,
+                'from'       => $reactor->name,
+                'emoji'      => $emoji,
+                'preview'    => mb_substr($comment->content, 0, 60),
+            ],
+        ]);
     }
 
     /**

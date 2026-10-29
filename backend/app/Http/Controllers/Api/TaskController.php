@@ -23,7 +23,7 @@ class TaskController extends Controller
             'department_id' => 'nullable|integer',
             'assignee_id'   => 'nullable|integer',
             'creator_id'    => 'nullable|integer',
-            'due'           => 'nullable|in:overdue,today,week,none',
+            'due'           => 'nullable|in:overdue,today,week,none,attention',
             'due_from'      => 'nullable|date',
             'due_to'        => 'nullable|date',
         ]);
@@ -644,6 +644,11 @@ class TaskController extends Controller
             $query->where('creator_id', $request->creator_id);
         }
 
+        // Strictly "assigned to me" — `mine` below also includes tasks I merely created.
+        if ($request->boolean('assigned_to_me')) {
+            $query->whereHas('assignees', fn($a) => $a->where('users.id', $user->id));
+        }
+
         if ($request->boolean('mine')) {
             $query->where(fn($q) => $q->where('creator_id', $user->id)
                 ->orWhereHas('assignees', fn($a) => $a->where('users.id', $user->id)));
@@ -651,6 +656,8 @@ class TaskController extends Controller
 
         match ($request->due) {
             'overdue' => $query->overdue(),
+            // Needs attention now: overdue or due today, and not finished yet.
+            'attention' => $query->whereNotNull('due_date')->whereDate('due_date', '<=', today())->where('status', '!=', 'completed'),
             'today'   => $query->whereDate('due_date', today()),
             'week'    => $query->whereDate('due_date', '>=', today())->whereDate('due_date', '<=', today()->addDays(7)),
             'none'    => $query->whereNull('due_date'),
