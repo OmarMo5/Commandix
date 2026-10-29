@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Task;
 use App\Models\TaskNotification;
 use App\Support\DirectUnread;
 use App\Support\GroupUnread;
@@ -40,7 +41,7 @@ class NotificationController extends Controller
         }
 
         return response()->json([
-            'notifications' => $query->orderByDesc('created_at')->orderByDesc('id')->paginate(20),
+            'notifications' => $this->withTargets($query->orderByDesc('created_at')->orderByDesc('id')->paginate(20)),
             'unread_count'  => $mine()->inbox()->unread()->count(),
             'counts'        => [
                 'primary_unread' => $mine()->inbox()->primary()->unread()->count(),
@@ -48,6 +49,28 @@ class NotificationController extends Controller
                 'later'          => $mine()->later()->count(),
             ],
         ]);
+    }
+
+    /**
+     * Adds `target` to each notification: where clicking it should take you.
+     *   { type: 'task' | 'group', id }   — a normal task, or a private group / a task inside one
+     *   null                              — the task no longer exists (or the notification isn't about a task)
+     * One query for the whole page, so the list never costs more than it did.
+     */
+    private function withTargets($page)
+    {
+        $ids = collect($page->items())->map(fn($n) => $n->data['task_id'] ?? null)->filter()->unique()->values();
+        $tasks = $ids->isEmpty() ? collect() : Task::whereIn('id', $ids)->get(['id', 'is_private', 'parent_group_id'])->keyBy('id');
+
+        return $page->through(function (TaskNotification $n) use ($tasks) {
+            $task = $tasks[$n->data['task_id'] ?? 0] ?? null;
+            $n->setAttribute('target', $task ? [
+                'type' => ($task->is_private || $task->parent_group_id) ? 'group' : 'task',
+                'id'   => $task->id,
+            ] : null);
+
+            return $n;
+        });
     }
 
     /**

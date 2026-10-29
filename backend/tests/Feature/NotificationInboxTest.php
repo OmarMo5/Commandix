@@ -204,4 +204,27 @@ class NotificationInboxTest extends ApiTestCase
 
         $this->assertSame([$new->id, $old->id], collect($this->list($me)['notifications']['data'])->pluck('id')->all());
     }
+
+    public function test_each_notification_says_where_it_points(): void
+    {
+        $me = $this->makeUser('employee');
+        $boss = $this->makeUser('manager');
+        $plain = \App\Models\Task::create(['title' => 'Plain', 'creator_id' => $boss->id]);
+        $group = $this->makeGroup($boss, [$me], 'Crew');
+        $inside = \App\Models\Task::create(['title' => 'Inside', 'creator_id' => $boss->id, 'parent_group_id' => $group->id]);
+
+        $gone = $this->note($me, 'task_assigned', ['data' => ['task_id' => 999999]]);
+        $onPlain = $this->note($me, 'task_assigned', ['data' => ['task_id' => $plain->id]]);
+        $onGroup = $this->note($me, 'task_comment', ['data' => ['task_id' => $group->id]]);
+        $onInside = $this->note($me, 'task_comment', ['data' => ['task_id' => $inside->id]]);
+        $noTask = $this->note($me, 'manager_message', ['data' => ['message' => 'hi']]);
+
+        $byId = collect($this->list($me)['notifications']['data'])->keyBy('id');
+
+        $this->assertSame(['type' => 'task', 'id' => $plain->id], $byId[$onPlain->id]['target']);
+        $this->assertSame(['type' => 'group', 'id' => $group->id], $byId[$onGroup->id]['target']);
+        $this->assertSame(['type' => 'group', 'id' => $inside->id], $byId[$onInside->id]['target'], 'a task inside a group opens in the groups area');
+        $this->assertNull($byId[$gone->id]['target'], 'deleted task');
+        $this->assertNull($byId[$noTask->id]['target'], 'not about a task');
+    }
 }
