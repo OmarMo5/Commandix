@@ -9,6 +9,7 @@ const DUE_OPTIONS = [
   { value: '', label: t('Any due date') },
   { value: 'overdue', label: t('Overdue') },
   { value: 'today', label: t('Due today') },
+  { value: 'attention', label: t('Overdue & due today') },
   { value: 'week', label: t('Next 7 days') },
   { value: 'none', label: t('No due date') },
 ];
@@ -73,6 +74,7 @@ export default function TaskFilters({ filters, onChange }) {
   const active = activeFilterCount(filters);
   const chips = [
     filters.mine && { key: 'mine', label: t('My tasks') },
+    filters.assigned_to_me && { key: 'assigned_to_me', label: t('Assigned to me') },
     filters.priority && { key: 'priority', label: `${t('Priority')}: ${t(filters.priority)}` },
     filters.department_id && { key: 'department_id', label: `${t('Dept')}: ${departments.find(d => String(d.id) === String(filters.department_id))?.name ?? filters.department_id}` },
     filters.assignee_id && { key: 'assignee_id', label: `${t('Assignee')}: ${people.find(p => String(p.id) === String(filters.assignee_id))?.name ?? filters.assignee_id}` },
@@ -80,7 +82,7 @@ export default function TaskFilters({ filters, onChange }) {
     filters.search && { key: 'search', label: `“${filters.search}”` },
   ].filter(Boolean);
 
-  const clearOne = (key) => set({ [key]: key === 'mine' ? false : '' });
+  const clearOne = (key) => set({ [key]: key === 'mine' || key === 'assigned_to_me' ? false : '' });
 
   return (
     <div className="mb-4">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, CheckSquare, Bell, Building2,
   Users, ShieldCheck, FolderOpen, Activity,
@@ -10,11 +10,14 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLive } from '../../context/LiveContext';
 import api from '../../api/axios';
 import Avatar from '../common/Avatar';
+import { VIEW_PRESETS } from '../../utils/taskFilters';
 import { t } from '../../i18n';
 
 const navItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: t('Dashboard'), section: 'Main', managerOnly: true },
   { path: '/tasks', icon: CheckSquare, label: t('My Tasks'), section: 'Main' },
+  { path: '/tasks', view: 'assigned', label: t('Assigned to me'), section: 'Main', sub: true },
+  { path: '/tasks', view: 'attention', label: t('Today & Overdue'), section: 'Main', sub: true },
   { path: '/groups', icon: Lock, label: t('Private Groups'), section: 'Main' },
   { path: '/messages', icon: MessageSquare, label: t('Messages'), section: 'Main', exact: true },
   { path: '/notifications', icon: Bell, label: t('Notifications'), section: 'Main' },
@@ -33,6 +36,8 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { appName, logoUrl } = useSettings();
   const { groupsUnreadTotal, dmUnreadTotal, dm_unread: dmUnread } = useLive();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  const currentView = new URLSearchParams(search).get('view');
   const [dms, setDms] = useState([]);
   const [dmTick, setDmTick] = useState(0);
   const dmSignature = JSON.stringify(dmUnread || {});
@@ -78,12 +83,28 @@ export default function Sidebar({ collapsed, onToggle }) {
               {!collapsed && <div className="nav-section">{t(section)}</div>}
               {items.map(item => {
                 const Icon = item.icon;
+                // The three /tasks links share a path, so "active" also has to look at ?view=.
+                const sharesTasksPath = item.path === '/tasks';
+                const activeFor = (routerActive) => (sharesTasksPath
+                  ? pathname === '/tasks' && (item.view ? currentView === item.view : !VIEW_PRESETS[currentView])
+                  : routerActive);
+                if (item.sub) {
+                  return (
+                    <NavLink
+                      key={`${item.path}?${item.view}`}
+                      to={`${item.path}?view=${item.view}`}
+                      className={({ isActive }) => `nav-item nav-sub ${activeFor(isActive) ? 'active' : ''}`}
+                    >
+                      <span>{item.label}</span>
+                    </NavLink>
+                  );
+                }
                 return (
                   <NavLink
                     key={item.path}
                     to={item.path}
                     end={item.exact}
-                    className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                    className={({ isActive }) => `nav-item ${activeFor(isActive) ? 'active' : ''}`}
                     title={collapsed ? item.label : undefined}
                   >
                     <span className="nav-icon-wrap">

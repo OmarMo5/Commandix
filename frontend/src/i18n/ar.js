@@ -2,6 +2,12 @@
 // Anything missing falls back to the English text (see ./index.js).
 const ar = {
   "Loading...": "جارٍ التحميل...",
+  "Assigned to me": "المسندة إليّ",
+  "Today & Overdue": "اليوم والمتأخرة",
+  "Overdue & due today": "متأخرة أو مستحقة اليوم",
+  "Add reaction": "إضافة تفاعل",
+  "Failed to react": "تعذّر إضافة التفاعل",
+  "{name} reacted {emoji} to your comment on \"{task}\": \"{text}\"": "تفاعل {name} بـ {emoji} مع تعليقك على \"{task}\": \"{text}\"",
   "Primary": "الرئيسية",
   "Other": "أخرى",
   "Later": "لاحقًا",

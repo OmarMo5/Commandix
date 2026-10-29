@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList, CheckCircle2, AtSign, MessageSquare, HelpCircle, Clock, AlarmClock,
-  LogOut, Zap, RefreshCw, CheckCheck, Mail, Bell, Check, Undo2, BellOff, Inbox,
+  LogOut, Zap, RefreshCw, CheckCheck, Mail, Bell, Check, Undo2, BellOff, Inbox, SmilePlus,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useLive } from '../../context/LiveContext';
@@ -23,6 +23,7 @@ const typeIcons = {
   workflow_progress: RefreshCw,
   workflow_finished: CheckCheck,
   manager_message:   Mail,
+  comment_reaction:  SmilePlus,
 };
 
 const TABS = ['primary', 'other', 'later', 'cleared'];
@@ -290,6 +291,7 @@ function getNotifText(notif) {
     case 'workflow_turn':     return t("It's your turn! {name} passed \"{task}\" to you — Step {step}", { name: d.from, task: d.task_title, step: d.step });
     case 'workflow_progress': return t('{name} completed Step {step} → now with {next}', { name: d.completed_by, step: d.step, next: d.next_assignee });
     case 'workflow_finished': return t('🎉 {name} finished the last step — task is done!', { name: d.completed_by });
+    case 'comment_reaction':  return t('{name} reacted {emoji} to your comment on "{task}": "{text}"', { name: d.from, emoji: d.emoji, task: d.task_title, text: d.preview });
     case 'manager_message':   return t('Message from {name} ({dept}): "{text}"', { name: d.from_name, dept: d.from_dept, text: d.message });
     default:                  return t('New notification');
   }

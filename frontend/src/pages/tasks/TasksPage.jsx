@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import api from '../../api/axios';
@@ -7,7 +8,7 @@ import TaskModal from './TaskModal';
 import TaskDetailModal from './TaskDetailModal';
 import DueBadge from '../../components/common/DueBadge';
 import TaskFilters from '../../components/tasks/TaskFilters';
-import { EMPTY_FILTERS, filtersToParams } from '../../utils/taskFilters';
+import { EMPTY_FILTERS, VIEW_PRESETS, filtersToParams } from '../../utils/taskFilters';
 import { t, formatDate, formatDateTime } from '../../i18n';
 
 const COLUMNS = [
@@ -22,9 +23,17 @@ export default function TasksPage() {
   const [showModal, setShowModal]     = useState(false);
   const [editTask, setEditTask]       = useState(null);
   const [detailTaskId, setDetailTaskId] = useState(null);
-  const [filters, setFilters]         = useState(() => {
+  const [savedFilters, setSavedFilters] = useState(() => {
     try { return { ...EMPTY_FILTERS, ...JSON.parse(localStorage.getItem('tasks.filters')) }; } catch { return EMPTY_FILTERS; }
   });
+  // A sidebar shortcut (?view=…) temporarily replaces the saved filters; editing any filter by hand drops it.
+  const [params, setParams] = useSearchParams();
+  const preset = VIEW_PRESETS[params.get('view')];
+  const filters = useMemo(() => (preset ? { ...EMPTY_FILTERS, ...preset } : savedFilters), [preset, savedFilters]);
+  const setFilters = (next) => {
+    setSavedFilters(next);
+    if (params.has('view')) setParams({}, { replace: true });
+  };
   const [dragOverCol, setDragOverCol] = useState(null);   // column key being dragged over
   const dragTaskId = useRef(null);                         // id of task being dragged
   const { isAdminOrAbove, isManager } = useAuth();

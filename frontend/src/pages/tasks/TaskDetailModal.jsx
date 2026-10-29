@@ -10,6 +10,7 @@ import MentionTextarea from '../../components/common/MentionTextarea';
 import { extractMentionIds, splitMentions } from '../../utils/mentions';
 import { Pencil } from 'lucide-react';
 import { t, formatDate, formatDateTime } from '../../i18n';
+import ReactionBar from '../../components/common/ReactionBar';
 
 const priorityBadge = { low: 'badge-low', medium: 'badge-medium', high: 'badge-high' };
 const statusBadge   = { pending: 'badge-pending', in_progress: 'badge-in_progress', completed: 'badge-completed' };
@@ -71,7 +72,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       .finally(() => setLoading(false));
 
   // A cheap fingerprint of a comment list, so live polling only re-renders when something changed.
-  const signature = (list) => list.map(c => `${c.id}:${c.replies?.length || 0}:${c.is_answered ? 1 : 0}`).join(',');
+  const reactionSig = (x) => (x.reaction_summary || []).map(r => `${r.emoji}${r.count}${r.reacted ? '*' : ''}`).join('');
+  const signature = (list) => list.map(c => `${c.id}:${c.replies?.length || 0}:${c.is_answered ? 1 : 0}:${reactionSig(c)}:${(c.replies || []).map(reactionSig).join('|')}`).join(',');
 
   const loadComments = () => {
     setCommentsLoading(true);
@@ -415,6 +417,15 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
       setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_answered: true } : c));
       toast.success(t('Marked as answered'));
     } catch { toast.error(t('Failed to resolve')); }
+  };
+
+  // Toggle my reaction on a comment or a reply; the server returns that message's fresh summary.
+  const reactToComment = async (commentId, emoji) => {
+    try {
+      const { data } = await api.post(`/tasks/${taskId}/comments/${commentId}/reactions`, { emoji });
+      const apply = (m) => (m.id === commentId ? { ...m, reaction_summary: data.reactions } : m);
+      setComments(prev => prev.map(c => ({ ...apply(c), replies: (c.replies || []).map(apply) })));
+    } catch (err) { toast.error(err.response?.data?.message || t('Failed to react')); }
   };
 
   const deleteComment = async (commentId) => {
@@ -938,6 +949,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
                           isAdmin={isAdminOrAbove()}
                           isCreator={task.creator_id === user?.id}
                           taggableUsers={taggableUsers}
+                          canReact={!locked || isSuperAdmin()}
+                          onReact={reactToComment}
                           readers={task.is_private ? readers : []}
                           replyTo={replyTo}
                           replyText={replyText}
@@ -1079,7 +1092,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }) {
 
 /* ── Comment Card ──────────────────────────────────────────────────────────── */
 
-function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggableUsers, readers, replyTo, replyText, posting, onSetReply, onReplyTextChange, onPostReply, onResolve, onDelete }) {
+function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggableUsers, canReact, onReact, readers, replyTo, replyText, posting, onSetReply, onReplyTextChange, onPostReply, onResolve, onDelete }) {
   const canResolve  = (isAdmin || isCreator) && comment.is_question && !comment.is_answered;
   const canDelete   = isAdmin || comment.user_id === currentUser?.id;
   const isMyReplyOpen = replyTo?.id === comment.id;
@@ -1105,6 +1118,7 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
             <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
               <MessageText text={comment.content} tagged={comment.mentioned_users} />
             </p>
+            <ReactionBar reactions={comment.reaction_summary} disabled={!canReact} onToggle={(emoji) => onReact(comment.id, emoji)} />
             <SeenBy message={comment} readers={readers} authorId={comment.user_id} />
           </div>
         </div>
@@ -1144,6 +1158,7 @@ function CommentCard({ comment, taskId, currentUser, isAdmin, isCreator, taggabl
                 <p style={{ fontSize: 13, margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                   <MessageText text={reply.content} tagged={reply.mentioned_users} />
                 </p>
+                <ReactionBar reactions={reply.reaction_summary} disabled={!canReact} onToggle={(emoji) => onReact(reply.id, emoji)} />
                 <SeenBy message={reply} readers={readers} authorId={reply.user_id} />
               </div>
             </div>
